@@ -14,7 +14,7 @@ function statusLine(t: Transfer): string {
   const counted = t.items.filter((i) => i.status !== 'skipped_duplicate' && i.status !== 'dropped').length;
   switch (t.status) {
     case 'collecting':
-      return 'Add the audio for your songs to start';
+      return 'Choose the audio files to start';
     case 'queued':
       return t.queue ? `Number ${t.queue.position} in line` : 'Waiting in line';
     case 'retrying':
@@ -42,7 +42,7 @@ export function YouTubeCard() {
         else router.push('/youtube');
       }}
       accessibilityRole="button"
-      accessibilityLabel={transfer ? `YouTube import in progress. ${statusLine(transfer)}` : 'Import from YouTube'}
+      accessibilityLabel={transfer ? `Import in progress. ${statusLine(transfer)}` : 'Import songs'}
       style={({ pressed }) => ({ opacity: pressed ? 0.8 : 1 })}
     >
       <Card style={{ padding: 16, gap: 12 }}>
@@ -51,9 +51,9 @@ export function YouTubeCard() {
             <CirclePlay size={22} color={colors.accent} />
           </View>
           <View style={{ flex: 1, gap: 2 }}>
-            <Text variant="headline">{transfer ? 'YouTube import in progress' : 'Import from YouTube'}</Text>
+            <Text variant="headline">{transfer ? 'Import in progress' : 'Import songs'}</Text>
             <Text variant="caption" color="textSecondary">
-              {transfer ? statusLine(transfer) : 'Bring your songs over from your channel.'}
+              {transfer ? statusLine(transfer) : 'Bring songs over from YouTube, or add them by hand.'}
             </Text>
           </View>
           <ChevronRight size={20} color={colors.textTertiary} />

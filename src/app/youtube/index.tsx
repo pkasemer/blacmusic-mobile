@@ -4,7 +4,7 @@ import * as Linking from 'expo-linking';
 import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { BookOpenCheck, CirclePlay, Music2, Upload } from 'lucide-react-native';
+import { BookOpenCheck, ChevronRight, CirclePlay, ListPlus, Music2, Upload } from 'lucide-react-native';
 import { USES_BACKEND } from '@/api/blac';
 import { YOUTUBE_REDIRECT, youtubeApi } from '@/api/blac/youtube';
 import { youtubeErrorText, youtubeKeys, useYouTubeConnection } from '@/api/blac/youtubeQueries';
@@ -149,6 +149,12 @@ export default function YouTubeConnectScreen() {
           actionLabel="Try again"
           onAction={() => void connection.refetch()}
         />
+        {/* YouTube being unavailable does not stop songs added by hand */}
+        <Pressable onPress={() => router.push('/youtube/manual')} accessibilityRole="button" style={{ alignItems: 'center', padding: 16, paddingBottom: insets.bottom + 24 }}>
+          <Text variant="bodyStrong" color="accent">
+            Add songs by hand instead
+          </Text>
+        </Pressable>
       </View>
     );
   }
@@ -225,6 +231,30 @@ export default function YouTubeConnectScreen() {
       ) : (
         <PrimaryButton label={busy === 'connect' ? 'Connecting…' : 'Connect YouTube'} onPress={connect} disabled={busy !== null} />
       )}
+
+      {/* Songs that are not on YouTube do not need a connected channel */}
+      <Pressable
+        onPress={() => {
+          haptics.select();
+          router.push('/youtube/manual');
+        }}
+        accessibilityRole="button"
+        accessibilityLabel="Add songs by hand"
+        style={({ pressed }) => ({ opacity: pressed ? 0.8 : 1 })}
+      >
+        <Card style={{ padding: 16, flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+          <View style={{ width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primarySoft }}>
+            <ListPlus size={22} color={colors.accent} />
+          </View>
+          <View style={{ flex: 1, gap: 2 }}>
+            <Text variant="headline">Not on YouTube?</Text>
+            <Text variant="caption" color="textSecondary">
+              Add songs by hand: name them and choose a file for each.
+            </Text>
+          </View>
+          <ChevronRight size={20} color={colors.textTertiary} />
+        </Card>
+      </Pressable>
 
       <View style={{ gap: 18 }}>
         <Text variant="label" color="textTertiary">

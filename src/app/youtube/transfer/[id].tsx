@@ -22,6 +22,12 @@ import { haptics } from '@/utils/haptics';
 
 const COUNTED_OUT: TransferItem['status'][] = ['skipped_duplicate', 'dropped'];
 const isCounted = (i: TransferItem) => !COUNTED_OUT.includes(i.status);
+/**
+ * What to send to the upload API for a song. The server gives the hint while a song waits for a file; a song still being
+ * fetched may only carry its release, which is enough to attach a file of the artist's own.
+ */
+const uploadHint = (item: TransferItem): TransferItem['upload'] =>
+  item.upload ?? (item.releaseId ? { releaseId: item.releaseId, title: item.title, explicit: false } : undefined);
 const isOpen = (t: Transfer) => ['collecting', 'queued', 'in_progress', 'retrying'].includes(t.status);
 
 /** What to say about one song, and in which colour. */
@@ -29,10 +35,16 @@ function describeItem(item: TransferItem, job: UploadJob | undefined, transferSt
   switch (item.status) {
     case 'skipped_duplicate':
       return { text: 'Already on Blac, so it was skipped', tone: 'normal' };
+    case 'fetching':
+      if (job?.state === 'failed') return { text: job.error ?? 'The upload failed', tone: 'bad' };
+      if (job && job.state !== 'ready') return { text: `Uploading ${Math.round(job.progress * 100)}%`, tone: 'busy' };
+      // The server's note while it waits to try again is a status, not a failure.
+      return { text: item.error ?? 'Getting the audio from YouTube', tone: 'busy' };
     case 'awaiting_audio':
       if (job?.state === 'failed') return { text: job.error ?? 'The upload failed', tone: 'bad' };
       if (job && job.state !== 'ready') return { text: `Uploading ${Math.round(job.progress * 100)}%`, tone: 'busy' };
-      return { text: 'Needs its audio file', tone: 'normal' };
+      // A song the server could not fetch says why ("the video is private. Upload a file instead.").
+      return { text: item.error ?? 'Needs its audio file', tone: item.error ? 'bad' : 'normal' };
     case 'uploading':
       if (job?.state === 'failed') return { text: job.error ?? 'The upload failed', tone: 'bad' };
       if (job && job.state !== 'ready') return { text: `Uploading ${Math.round(job.progress * 100)}%`, tone: 'busy' };
@@ -59,6 +71,7 @@ function ItemRow({
   job,
   transfer,
   onAddAudio,
+  onRemoveFile,
   onSkip,
   onRetryUpload,
   last,
@@ -67,6 +80,7 @@ function ItemRow({
   job: UploadJob | undefined;
   transfer: Transfer;
   onAddAudio: () => void;
+  onRemoveFile: () => void;
   onSkip: () => void;
   onRetryUpload: () => void;
   last: boolean;
@@ -76,6 +90,10 @@ function ItemRow({
   const { text, tone } = describeItem(item, job, transfer.status);
   const color = tone === 'good' ? colors.success : tone === 'bad' ? colors.danger : colors.textSecondary;
   const needsAudio = collecting && (item.status === 'awaiting_audio' || (item.status === 'uploading' && !(job && job.state !== 'failed')) || job?.state === 'failed');
+  // A song whose file is in can still change its mind while the transfer waits for the artist.
+  const hasFile = collecting && item.status === 'waiting';
+  // A song still being fetched can be switched to the artist's own file while the transfer waits for the artist.
+  const canUseOwnFile = collecting && item.status === 'fetching' && !!uploadHint(item) && !(job && job.state !== 'failed');
   const uploading = job && (job.state === 'uploading' || job.state === 'waiting');
   const showBar = item.status === 'processing' || item.status === 'cover' || item.status === 'publishing' || uploading;
   const barValue = uploading ? job.progress : item.percent / 100;
@@ -106,6 +124,27 @@ function ItemRow({
         {tone === 'busy' && !showBar ? <ActivityIndicator size="small" color={colors.accent} /> : null}
       </View>
       {showBar ? <ProgressBar value={barValue} /> : null}
+      {hasFile ? (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 18 }}>
+          <Pressable onPress={onAddAudio} hitSlop={8} accessibilityRole="button" accessibilityLabel={`Replace the file for ${item.title}`}>
+            <Text variant="caption" color="accent">
+              Replace file
+            </Text>
+          </Pressable>
+          <Pressable onPress={onRemoveFile} hitSlop={8} accessibilityRole="button" accessibilityLabel={`Remove the file for ${item.title}`}>
+            <Text variant="caption" color="textSecondary">
+              Remove file
+            </Text>
+          </Pressable>
+        </View>
+      ) : null}
+      {canUseOwnFile ? (
+        <Pressable onPress={onAddAudio} hitSlop={8} accessibilityRole="button" style={{ alignSelf: 'flex-start' }}>
+          <Text variant="caption" color="accent">
+            Use my own file instead
+          </Text>
+        </Pressable>
+      ) : null}
       {needsAudio ? (
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
           <Pressable
@@ -177,8 +216,8 @@ export default function TransferScreen() {
   };
 
   const pickAudio = async (item: TransferItem) => {
-    if (!item.upload) return;
-    const upload = item.upload;
+    const upload = uploadHint(item);
+    if (!upload) return;
     const picked = await File.pickFileAsync({ mimeTypes: ['audio/*', 'video/*'] });
     if (picked.canceled) return;
     const file = await readable(picked.result);
@@ -207,6 +246,22 @@ export default function TransferScreen() {
       upload.genre,
     );
     setKeys((k) => ({ ...k, [item.id]: key }));
+  };
+
+  const removeFile = (item: TransferItem) => {
+    Alert.alert(`Remove the file for "${item.title}"?`, 'The file is deleted and its storage is given back. You can add another one.', [
+      { text: 'Keep', style: 'cancel' },
+      {
+        text: 'Remove',
+        style: 'destructive',
+        onPress: () =>
+          void run(async () => {
+            const key = keys[item.id];
+            if (key) dismissUpload(key);
+            return youtubeApi.removeAudio(id, item.id);
+          }, "Couldn't remove the file"),
+      },
+    ]);
   };
 
   const skip = (item: TransferItem) => {
@@ -274,8 +329,18 @@ export default function TransferScreen() {
   let detail = '';
   let icon = <Music2 size={26} color={colors.accent} />;
   if (transfer.status === 'collecting') {
-    headline = 'Add the audio for each song';
-    detail = `Choose an audio file (or a video file from YouTube Studio) for every song. We'll queue the transfer once each one has audio. ${readyCount} of ${counted.length} ready.`;
+    const needFile = counted.filter((i) => i.status === 'awaiting_audio' || i.status === 'uploading' || i.status === 'failed').length;
+    const fetching = counted.filter((i) => i.status === 'fetching').length;
+    if (needFile > 0) {
+      headline = needFile === 1 ? '1 song needs an audio file' : `${needFile} songs need an audio file`;
+      detail = `Choose an audio file (or a video file from YouTube Studio) for ${needFile === 1 ? 'it' : 'each of them'}.${fetching > 0 ? ` ${fetching} more ${fetching === 1 ? 'is' : 'are'} being fetched from YouTube.` : ''} Then start the transfer. ${readyCount} of ${counted.length} ready.`;
+    } else if (fetching > 0) {
+      headline = 'Getting your audio';
+      detail = `${fetching} of ${counted.length} ${fetching === 1 ? 'song is' : 'songs are'} being fetched from YouTube. You can start the transfer now or wait; a song that can't be fetched will ask you for a file.`;
+    } else {
+      headline = 'Ready to start';
+      detail = `Every song has its audio. ${readyCount} of ${counted.length} ready.`;
+    }
   } else if (transfer.status === 'queued') {
     headline = queue ? (queue.position <= 1 ? "You're next in line" : `You're number ${queue.position} in line`) : 'Waiting in line';
     detail = queue
@@ -349,6 +414,7 @@ export default function TransferScreen() {
                 transfer={transfer}
                 last={index === visibleItems.length - 1}
                 onAddAudio={() => void pickAudio(item)}
+                onRemoveFile={() => removeFile(item)}
                 onSkip={() => skip(item)}
                 onRetryUpload={() => {
                   const key = keys[item.id];

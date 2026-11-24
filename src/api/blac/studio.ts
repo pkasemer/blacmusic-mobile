@@ -242,6 +242,18 @@ export const studioApi = {
     return { id: data.id, releaseId: data.releaseId, target: toTarget(data.upload) };
   },
 
+  /**
+   * Swaps the audio of a track in a draft release: reserves a new upload with the old track's title, genre, track
+   * number and explicit flag, then removes the old track. If the new file is refused, nothing changes.
+   */
+  async replaceTrackAudio(input: { trackId: string; filename: string; sizeBytes: number }): Promise<CreatedUpload> {
+    const data = await apiRequest<{ id: string; releaseId: string; upload: WireTarget }>(`/v1/tracks/${encodeURIComponent(input.trackId)}/replace-audio`, {
+      method: 'POST',
+      body: { filename: input.filename, sizeBytes: input.sizeBytes, rightsAccepted: true, termsVersion: TERMS_VERSION },
+    });
+    return { id: data.id, releaseId: data.releaseId, target: toTarget(data.upload) };
+  },
+
   /** For a resumed multipart upload: fresh links for only the parts storage does not have yet. */
   async getMissingParts(uploadId: string): Promise<{ number: number; url: string }[]> {
     const data = await apiRequest<{ parts: { number: number; url: string }[] }>(`/v1/uploads/${uploadId}/parts`);

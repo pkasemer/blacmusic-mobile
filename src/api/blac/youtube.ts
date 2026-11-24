@@ -22,6 +22,8 @@ export interface YouTubeConnection {
   lastSyncedAt?: string;
   /** Google no longer accepts our access (the user revoked it): connect again. */
   needsReconnect: boolean;
+  /** The server can fetch the audio of the artist's own videos itself. Absent or false: the artist adds every file. */
+  audioImport?: boolean;
 }
 
 /** One song found on the channel. Lyric videos, visualizers and shorts of one song are grouped into it. */
@@ -44,6 +46,8 @@ export type TransferStatus = 'collecting' | 'queued' | 'in_progress' | 'retrying
 
 export type TransferItemStatus =
   | 'awaiting_audio'
+  /** The server is getting the audio from YouTube (or waiting to try again; `error` may say so). */
+  | 'fetching'
   | 'uploading'
   | 'waiting'
   | 'processing'
@@ -67,6 +71,8 @@ export interface TransferItem {
   uploadId?: string | null;
   trackId?: string | null;
   error?: string | null;
+  /** Where this song's audio comes from: the server fetches it from YouTube, or the artist uploads a file. */
+  audioSource?: 'youtube' | 'upload';
   duplicateOf?: string;
   /** Present while the song needs (new) audio: what to send to the upload API. */
   upload?: { releaseId: string; title: string; genre?: string; trackNumber?: number; explicit: boolean };
@@ -90,7 +96,10 @@ export interface Transfer {
 }
 
 export interface NewTransferItem {
-  videoId: string;
+  /** Left out for a song that is not on YouTube (added by hand): then a `title` is required and the artist adds the file. */
+  videoId?: string;
+  /** "youtube": the server fetches the audio. "upload": the artist adds a file. Only sent when `audioImport` is on. */
+  audio?: 'youtube' | 'upload';
   title?: string;
   releaseType?: 'single' | 'album';
   albumTitle?: string;
@@ -109,8 +118,11 @@ export interface YouTubeApi {
   startConnect(): Promise<{ authUrl: string }>;
   disconnect(): Promise<void>;
   getVideos(options?: { refresh?: boolean }): Promise<{ videos: YouTubeVideo[]; syncedAt?: string }>;
-  createTransfer(items: NewTransferItem[], idempotencyKey: string): Promise<Transfer>;
+  /** `rights` is the artist's confirmation that they own the songs; the server requires it when it fetches any audio. */
+  createTransfer(items: NewTransferItem[], idempotencyKey: string, rights?: { termsVersion: string }): Promise<Transfer>;
   attachAudio(transferId: string, itemId: string, uploadId: string): Promise<Transfer>;
+  /** Takes the file out of a song (while the transfer is still collecting): it goes back to waiting for audio. */
+  removeAudio(transferId: string, itemId: string): Promise<Transfer>;
   dropItem(transferId: string, itemId: string): Promise<void>;
   submit(transferId: string): Promise<Transfer>;
   getTransfer(id: string): Promise<Transfer>;
@@ -147,14 +159,21 @@ const httpYouTube: YouTubeApi = {
     return { videos: data.videos.map((v) => ({ ...v, variants: v.variants ?? [] })), syncedAt: data.syncedAt };
   },
 
-  createTransfer: (items, idempotencyKey) =>
-    apiRequest<Transfer>('/v1/transfers', { method: 'POST', body: { items }, headers: { 'Idempotency-Key': idempotencyKey } }),
+  createTransfer: (items, idempotencyKey, rights) =>
+    apiRequest<Transfer>('/v1/transfers', {
+      method: 'POST',
+      body: { items, ...(rights ? { rightsAccepted: true, termsVersion: rights.termsVersion } : {}) },
+      headers: { 'Idempotency-Key': idempotencyKey },
+    }),
 
   attachAudio: (transferId, itemId, uploadId) =>
     apiRequest<Transfer>(`/v1/transfers/${encodeURIComponent(transferId)}/items/${encodeURIComponent(itemId)}/audio`, {
       method: 'POST',
       body: { uploadId },
     }),
+
+  removeAudio: (transferId, itemId) =>
+    apiRequest<Transfer>(`/v1/transfers/${encodeURIComponent(transferId)}/items/${encodeURIComponent(itemId)}/audio`, { method: 'DELETE' }),
 
   dropItem: async (transferId, itemId) => {
     await apiRequest<void>(`/v1/transfers/${encodeURIComponent(transferId)}/items/${encodeURIComponent(itemId)}`, { method: 'DELETE' });
@@ -253,13 +272,13 @@ const mockYouTube: YouTubeApi = {
       finishedAt: null,
       items: items.map((it, i) => ({
         id: `item-${i}`,
-        videoId: it.videoId,
-        title: it.title ?? it.videoId,
+        videoId: it.videoId ?? `manual:${i + 1}`,
+        title: it.title ?? it.videoId ?? 'Song',
         status: 'awaiting_audio',
         percent: 0,
         releaseType: it.releaseType ?? 'single',
         albumTitle: it.albumTitle ?? '',
-        upload: { releaseId: `rel-${i}`, title: it.title ?? it.videoId, genre: it.genre, trackNumber: i + 1, explicit: it.explicit ?? false },
+        upload: { releaseId: `rel-${i}`, title: it.title ?? it.videoId ?? 'Song', genre: it.genre, trackNumber: i + 1, explicit: it.explicit ?? false },
       })),
     };
     return wait({ ...mockTransfer });
@@ -267,6 +286,11 @@ const mockYouTube: YouTubeApi = {
   attachAudio: async (_t, itemId) => {
     const item = mockTransfer?.items.find((i) => i.id === itemId);
     if (item) item.status = 'waiting';
+    return wait({ ...(mockTransfer as Transfer) }, 200);
+  },
+  removeAudio: async (_t, itemId) => {
+    const item = mockTransfer?.items.find((i) => i.id === itemId);
+    if (item) item.status = 'awaiting_audio';
     return wait({ ...(mockTransfer as Transfer) }, 200);
   },
   dropItem: async (_t, itemId) => {

@@ -28,7 +28,8 @@ export function transferPollMs(transfer: Transfer | undefined): number | false {
       return 4000;
     case 'queued':
     case 'retrying':
-      return 12_000;
+      // Songs being fetched from YouTube change state quickly (and may need a file when a fetch fails).
+      return transfer.items?.some((i) => i.status === 'fetching') ? 4000 : 12_000;
     default:
       return false;
   }
@@ -83,6 +84,10 @@ export function youtubeErrorText(error: unknown): string {
         return 'Some songs still need their audio.';
       case 'no_audio':
         return 'Add audio for at least one song first.';
+      case 'busy':
+        return 'That file is being processed right now. Try again in a moment.';
+      case 'rights_not_accepted':
+        return 'Confirm that you own the rights to these songs first.';
       case 'wrong_state':
         return "That can't be done at this stage of the transfer.";
     }

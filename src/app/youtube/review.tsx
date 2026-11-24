@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Switch, TextInput, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Check, CircleCheck } from 'lucide-react-native';
+import { CircleCheck } from 'lucide-react-native';
 import { ApiError } from '@/api/blac';
 import { youtubeApi, type NewTransferItem, type YouTubeVideo } from '@/api/blac/youtube';
 import {
@@ -14,7 +14,10 @@ import {
   youtubeKeys,
 } from '@/api/blac/youtubeQueries';
 import { queryClient } from '@/api/queryClient';
+import { TERMS_VERSION } from '@/api/blac/studio';
 import { Artwork } from '@/components/Artwork';
+import { Checkbox } from '@/components/Checkbox';
+import { Chip } from '@/components/Chip';
 import { GenrePicker } from '@/components/GenrePicker';
 import { ScreenState } from '@/components/ScreenState';
 import { Text } from '@/components/Text';
@@ -24,27 +27,6 @@ import { radius, useTheme } from '@/theme';
 import { offerPush } from '@/notifications/push';
 import { haptics } from '@/utils/haptics';
 import { yearOf } from '@/utils/format';
-
-function Checkbox({ checked, disabled }: { checked: boolean; disabled?: boolean }) {
-  const { colors } = useTheme();
-  return (
-    <View
-      style={{
-        width: 24,
-        height: 24,
-        borderRadius: 6,
-        borderWidth: 1.5,
-        borderColor: checked ? colors.primary : colors.borderStrong,
-        backgroundColor: checked ? colors.primary : 'transparent',
-        alignItems: 'center',
-        justifyContent: 'center',
-        opacity: disabled ? 0.4 : 1,
-      }}
-    >
-      {checked ? <Check size={16} color={colors.onPrimary} /> : null}
-    </View>
-  );
-}
 
 function SongRow({ video, selected, onToggle }: { video: YouTubeVideo; selected: boolean; onToggle: () => void }) {
   const { colors } = useTheme();
@@ -113,6 +95,10 @@ export default function YouTubeReviewScreen() {
   const [albumTitle, setAlbumTitle] = useState('');
   const [genre, setGenre] = useState('');
   const [rights, setRights] = useState(false);
+  // Only when the server can fetch audio itself. On by default; the artist can choose to add their own files instead.
+  const audioImport = connection.data?.audioImport === true;
+  const [ownFiles, setOwnFiles] = useState(false);
+  const fetchAudio = audioImport && !ownFiles;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -144,11 +130,14 @@ export default function YouTubeReviewScreen() {
         videoId: v.videoId,
         title: v.suggested.title,
         releaseDate: v.suggested.releaseDate,
+        ...(audioImport ? { audio: fetchAudio ? ('youtube' as const) : ('upload' as const) } : {}),
         ...(genre ? { genre } : {}),
         ...(asAlbum && canGroup ? { releaseType: 'album' as const, albumTitle: albumTitle.trim() } : { releaseType: 'single' as const }),
       }));
       // A new key per press; if an earlier press did create a transfer, the server answers "transfer_active" and we open that one.
-      const transfer = await youtubeApi.createTransfer(items, `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`);
+      const transfer = await youtubeApi.createTransfer(items, `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`, {
+        termsVersion: TERMS_VERSION,
+      });
       setTransferInCache(transfer);
       haptics.success();
       router.replace({ pathname: '/youtube/transfer/[id]', params: { id: transfer.id } });
@@ -255,6 +244,22 @@ export default function YouTubeReviewScreen() {
 
         {/* Options for everything chosen */}
         <View style={{ gap: 18, paddingHorizontal: 20, paddingTop: 20 }}>
+          {audioImport ? (
+            <View style={{ gap: 10 }}>
+              <Text variant="label" color="textTertiary">
+                Where the audio comes from
+              </Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                <Chip label="Get it from YouTube" selected={!ownFiles} onPress={() => setOwnFiles(false)} />
+                <Chip label="I'll add my own files" selected={ownFiles} onPress={() => setOwnFiles(true)} />
+              </View>
+              <Text variant="caption" color="textSecondary">
+                {ownFiles
+                  ? 'You choose an audio file for each song, so the quality stays yours.'
+                  : "We take the sound from your own videos. It's good for listening but not studio quality. You can still add a better file for any song afterwards."}
+              </Text>
+            </View>
+          ) : null}
           <GenrePicker label="Genre for all (optional)" value={genre} onChange={setGenre} />
 
           {canGroup ? (

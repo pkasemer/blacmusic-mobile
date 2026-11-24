@@ -2,7 +2,8 @@ import { useMemo } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, View } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { AlertCircle, CheckCircle2, Circle, Pause, Pencil, Play, RotateCcw, Trash2, X } from 'lucide-react-native';
+import { File } from 'expo-file-system';
+import { AlertCircle, CheckCircle2, Circle, Pause, Pencil, Play, RefreshCw, RotateCcw, Trash2, X } from 'lucide-react-native';
 import { useRelease } from '@/api/blac/queries';
 import { studioApi, type PendingUpload } from '@/api/blac/studio';
 import { queryClient } from '@/api/queryClient';
@@ -17,7 +18,8 @@ import type { Track } from '@/domain/types';
 import { useMusicStore } from '@/store/musicStore';
 import { useScheduleStore } from '@/store/scheduleStore';
 import { useUploadStore } from '@/store/uploadStore';
-import { dismissUpload, retryUpload } from '@/uploads/uploadManager';
+import { readable } from '@/uploads/fileSize';
+import { dismissUpload, retryUpload, uploadTracks } from '@/uploads/uploadManager';
 import { radius, useTheme } from '@/theme';
 import { haptics } from '@/utils/haptics';
 
@@ -226,6 +228,32 @@ export default function ReleaseScreen() {
     Alert.alert(`Delete “${title}”?`, 'The track is removed from everyone’s playlists and library.', [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Delete', style: 'destructive', onPress: () => run(() => studioApi.deleteTrack(trackId), "Couldn't delete") },
+    ]);
+  };
+
+  /** Picks a new audio file for a track of this draft; the track keeps its title, genre, number and explicit flag. */
+  const replaceAudio = (track: { id: string; title: string; trackNumber?: number | null; explicit: boolean }) => {
+    haptics.select();
+    Alert.alert(`Replace the audio of “${track.title}”?`, 'Choose a new file. The old file is removed once the new one is accepted. Its title and details stay.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Choose file',
+        onPress: async () => {
+          // Audio, or the video file from YouTube Studio's Download button: the server takes the sound out of it.
+          const picked = await File.pickFileAsync({ mimeTypes: ['audio/*', 'video/*'] });
+          if (picked.canceled) return;
+          const file = await readable(picked.result);
+          if (!file) {
+            Alert.alert("Can't read that file", 'Download it to your phone first (for example from iCloud), then choose it again.');
+            return;
+          }
+          uploadTracks(
+            id,
+            [{ file, title: track.title, explicit: track.explicit, trackNumber: track.trackNumber ?? undefined, replaceTrackId: track.id }],
+            data?.genre,
+          );
+        },
+      },
     ]);
   };
 
@@ -496,6 +524,11 @@ export default function ReleaseScreen() {
                         {t.explicit ? ' · Explicit' : ''}
                       </Text>
                     </View>
+                    {!live ? (
+                      <IconAction label={`Replace the audio of ${t.title}`} onPress={() => replaceAudio(t)}>
+                        <RefreshCw size={18} color={colors.textTertiary} />
+                      </IconAction>
+                    ) : null}
                     <IconAction label={`Delete ${t.title}`} onPress={() => confirmDeleteTrack(t.id, t.title)}>
                       <Trash2 size={18} color={colors.textTertiary} />
                     </IconAction>

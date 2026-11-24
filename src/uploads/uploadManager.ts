@@ -34,6 +34,8 @@ interface Handle {
   explicit: boolean;
   afterCreate?: (uploadId: string) => Promise<void>;
   handoff: boolean;
+  /** Swap the audio of this finished track (in a draft release) instead of adding a new track. */
+  replaceTrackId?: string;
 }
 
 const handles = new Map<string, Handle>();
@@ -58,6 +60,8 @@ export interface TrackToUpload {
    * the file is in, instead of waiting for processing.
    */
   handoff?: boolean;
+  /** Replace the audio of this finished track of a draft release; it keeps its title, genre, number and explicit flag. */
+  replaceTrackId?: string;
 }
 
 /** Queues files for a release. They start right away, two at a time. */
@@ -85,6 +89,7 @@ export function uploadTracks(releaseId: string, tracks: TrackToUpload[], genre?:
       explicit: t.explicit,
       afterCreate: t.afterCreate,
       handoff: t.handoff === true,
+      replaceTrackId: t.replaceTrackId,
     });
     store().add(job);
     waiting.push(key);
@@ -134,6 +139,7 @@ function messageFor(error: unknown): string {
   if (error instanceof ApiError) {
     if (error.code === 'quota_exceeded') return 'Your storage is full. Add more storage on the Blac website, or delete something.';
     if (error.code === 'daily_limit') return "You've reached today's upload limit. Try again tomorrow, or ask for verification to raise it.";
+    if (error.code === 'not_draft') return 'Only tracks in a draft can have their audio replaced. Take the release back to draft first.';
     if (error.code === 'limit_reached') return 'You have too many unfinished uploads. Finish or remove some first.';
     return error.message;
   }
@@ -151,15 +157,19 @@ async function runJob(key: string) {
     if (!handle.uploadId) {
       // The backend needs the size up front (it reserves that much of the artist's storage).
       if (job.sizeBytes <= 0) throw new Error('This file could not be read. Choose it again.');
-      const created = await studioApi.createUpload({
-        releaseId: job.releaseId,
-        title: handle.title,
-        filename: job.filename,
-        sizeBytes: job.sizeBytes,
-        genre: handle.genre,
-        trackNumber: handle.trackNumber,
-        explicit: handle.explicit,
-      });
+      const created = handle.replaceTrackId
+        ? await studioApi.replaceTrackAudio({ trackId: handle.replaceTrackId, filename: job.filename, sizeBytes: job.sizeBytes })
+        : await studioApi.createUpload({
+            releaseId: job.releaseId,
+            title: handle.title,
+            filename: job.filename,
+            sizeBytes: job.sizeBytes,
+            genre: handle.genre,
+            trackNumber: handle.trackNumber,
+            explicit: handle.explicit,
+          });
+      // The old track is gone now; if this upload has to start over, it starts as a plain new upload.
+      handle.replaceTrackId = undefined;
       handle.uploadId = created.id;
       store().patch(key, { uploadId: created.id });
       await handle.afterCreate?.(created.id);
