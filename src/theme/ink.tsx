@@ -1,4 +1,4 @@
-import { createContext, useMemo } from 'react';
+import { createContext, useContext, useMemo } from 'react';
 import { useTheme } from '@/theme';
 import { luminance, mixHex } from '@/utils/color';
 
@@ -15,6 +15,13 @@ export interface Ink {
  * these. Wrap only the content that sits on the backdrop, never anything with its own background.
  */
 export const InkContext = createContext<Ink | null>(null);
+
+/** The text colours to use right now: the backdrop's ink when inside one, else the theme's own. */
+export function useInk(): Ink {
+  const ink = useContext(InkContext);
+  const { colors } = useTheme();
+  return ink ?? { primary: colors.text, secondary: colors.textSecondary, tertiary: colors.textTertiary, accent: colors.accent };
+}
 
 const ON_LIGHT: Ink = {
   primary: '#141413',

@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, TextInput, View } from 'react-native';
 import { File } from 'expo-file-system';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { CheckCircle2, CircleAlert, Hourglass, Music2 } from 'lucide-react-native';
+import { CheckCircle2, CircleAlert, Hourglass, Music2, Pencil } from 'lucide-react-native';
 import { ApiError } from '@/api/blac';
 import { youtubeApi, type Transfer, type TransferItem } from '@/api/blac/youtube';
 import { setTransferInCache, useTransfer, youtubeErrorText } from '@/api/blac/youtubeQueries';
@@ -16,6 +16,7 @@ import { ScreenState } from '@/components/ScreenState';
 import { Text } from '@/components/Text';
 import { useUploadStore, type UploadJob } from '@/store/uploadStore';
 import { radius, useTheme } from '@/theme';
+import { fontStyle } from '@/theme/fonts';
 import { readable } from '@/uploads/fileSize';
 import { dismissUpload, retryUpload, uploadTracks } from '@/uploads/uploadManager';
 import { haptics } from '@/utils/haptics';
@@ -43,11 +44,15 @@ function describeItem(item: TransferItem, job: UploadJob | undefined, transferSt
     case 'awaiting_audio':
       if (job?.state === 'failed') return { text: job.error ?? 'The upload failed', tone: 'bad' };
       if (job && job.state !== 'ready') return { text: `Uploading ${Math.round(job.progress * 100)}%`, tone: 'busy' };
+      // The file is in; the server has not updated this song yet.
+      if (job?.state === 'ready') return { text: 'Adding the audio…', tone: 'busy' };
       // A song the server could not fetch says why ("the video is private. Upload a file instead.").
       return { text: item.error ?? 'Needs its audio file', tone: item.error ? 'bad' : 'normal' };
     case 'uploading':
       if (job?.state === 'failed') return { text: job.error ?? 'The upload failed', tone: 'bad' };
       if (job && job.state !== 'ready') return { text: `Uploading ${Math.round(job.progress * 100)}%`, tone: 'busy' };
+      // The file is in on this phone; the server marks the song "Audio added" a moment later. That is not a failure.
+      if (job?.state === 'ready') return { text: 'Adding the audio…', tone: 'busy' };
       return { text: "The upload didn't finish. Choose the file again.", tone: 'bad' };
     case 'waiting':
       return { text: transferStatus === 'collecting' ? 'Audio added' : 'Waiting for its turn', tone: transferStatus === 'collecting' ? 'good' : 'normal' };
@@ -72,6 +77,7 @@ function ItemRow({
   transfer,
   onAddAudio,
   onRemoveFile,
+  onRename,
   onSkip,
   onRetryUpload,
   last,
@@ -81,12 +87,37 @@ function ItemRow({
   transfer: Transfer;
   onAddAudio: () => void;
   onRemoveFile: () => void;
+  /** Saves a new title; resolves when the server has it (rejects with a sentence on failure). */
+  onRename: (title: string) => Promise<void>;
   onSkip: () => void;
   onRetryUpload: () => void;
   last: boolean;
 }) {
   const { colors } = useTheme();
   const collecting = transfer.status === 'collecting';
+  // The title can be fixed until the transfer is started.
+  const canRename = collecting && item.status !== 'skipped_duplicate' && item.status !== 'dropped';
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [renameError, setRenameError] = useState<string | null>(null);
+  const saveTitle = async () => {
+    const next = draft.trim();
+    if (!next || next === item.title) {
+      setEditing(false);
+      return;
+    }
+    setSaving(true);
+    setRenameError(null);
+    try {
+      await onRename(next);
+      setEditing(false);
+    } catch (e) {
+      setRenameError(e instanceof Error ? e.message : "Couldn't save the title");
+    } finally {
+      setSaving(false);
+    }
+  };
   const { text, tone } = describeItem(item, job, transfer.status);
   const color = tone === 'good' ? colors.success : tone === 'bad' ? colors.danger : colors.textSecondary;
   const needsAudio = collecting && (item.status === 'awaiting_audio' || (item.status === 'uploading' && !(job && job.state !== 'failed')) || job?.state === 'failed');
@@ -112,13 +143,66 @@ function ItemRow({
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
         <Artwork id={item.videoId} logoUrl={item.thumbnailUrl ?? null} size={48} />
         <View style={{ flex: 1, gap: 2 }}>
-          <Text variant="headline" numberOfLines={1}>
-            {item.title}
-          </Text>
-          <Text variant="caption" numberOfLines={2} style={{ color }}>
-            {text}
-          </Text>
+          {editing ? (
+            <TextInput
+              value={draft}
+              onChangeText={setDraft}
+              autoFocus
+              maxLength={200}
+              returnKeyType="done"
+              onSubmitEditing={() => void saveTitle()}
+              accessibilityLabel="Song title"
+              style={{
+                ...fontStyle('rounded', '600'),
+                fontSize: 16,
+                color: colors.text,
+                borderWidth: 1,
+                borderColor: colors.accent,
+                borderRadius: radius.sm,
+                paddingHorizontal: 10,
+                paddingVertical: 8,
+              }}
+            />
+          ) : (
+            <Text variant="headline" numberOfLines={1}>
+              {item.title}
+            </Text>
+          )}
+          {editing ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 18, paddingTop: 4 }}>
+              <Pressable onPress={() => void saveTitle()} disabled={saving} hitSlop={8} accessibilityRole="button">
+                {saving ? <ActivityIndicator size="small" color={colors.accent} /> : <Text variant="bodyStrong" color="accent">Save</Text>}
+              </Pressable>
+              <Pressable onPress={() => { setEditing(false); setRenameError(null); }} disabled={saving} hitSlop={8} accessibilityRole="button">
+                <Text variant="caption" color="textSecondary">
+                  Cancel
+                </Text>
+              </Pressable>
+            </View>
+          ) : (
+            <Text variant="caption" numberOfLines={2} style={{ color }}>
+              {text}
+            </Text>
+          )}
+          {renameError ? (
+            <Text variant="caption" color="danger">
+              {renameError}
+            </Text>
+          ) : null}
         </View>
+        {canRename && !editing ? (
+          <Pressable
+            onPress={() => {
+              setDraft(item.title);
+              setEditing(true);
+            }}
+            hitSlop={10}
+            accessibilityRole="button"
+            accessibilityLabel={`Edit the title of ${item.title}`}
+          >
+            <Pencil size={18} color={colors.textTertiary} />
+          </Pressable>
+        ) : null}
         {item.status === 'done' ? <CheckCircle2 size={22} color={colors.success} /> : null}
         {item.status === 'failed' ? <CircleAlert size={22} color={colors.danger} /> : null}
         {tone === 'busy' && !showBar ? <ActivityIndicator size="small" color={colors.accent} /> : null}
@@ -196,6 +280,13 @@ export default function TransferScreen() {
       void queryClient.invalidateQueries({ queryKey: ['music'] });
     }
   }, [status]);
+
+  // As soon as a file has gone up, ask the server for the song's new state instead of waiting for the next poll.
+  const readyUploads = Object.keys(keys).filter((k) => jobs[keys[k]]?.state === 'ready').length;
+  const refetchTransfer = query.refetch;
+  useEffect(() => {
+    if (readyUploads > 0) void refetchTransfer();
+  }, [readyUploads, refetchTransfer]);
 
   const counted = useMemo(() => (transfer?.items ?? []).filter(isCounted), [transfer?.items]);
   const jobOf = (item: TransferItem) => (keys[item.id] ? jobs[keys[item.id]] : undefined);
@@ -415,6 +506,15 @@ export default function TransferScreen() {
                 last={index === visibleItems.length - 1}
                 onAddAudio={() => void pickAudio(item)}
                 onRemoveFile={() => removeFile(item)}
+                onRename={async (title) => {
+                  try {
+                    setTransferInCache(await youtubeApi.updateItem(id, item.id, { title }));
+                    haptics.success();
+                  } catch (e) {
+                    haptics.error();
+                    throw new Error(youtubeErrorText(e));
+                  }
+                }}
                 onSkip={() => skip(item)}
                 onRetryUpload={() => {
                   const key = keys[item.id];
@@ -441,7 +541,7 @@ export default function TransferScreen() {
           <PrimaryButton label={busy ? 'Working…' : 'Retry'} disabled={busy} onPress={() => void run(() => youtubeApi.retry(id), "Couldn't retry")} />
         ) : null}
 
-        {transfer.status === 'cancelled' ? <PrimaryButton label="Start a new import" onPress={() => router.replace('/youtube/review')} /> : null}
+        {transfer.status === 'cancelled' ? <PrimaryButton label="Start a new import" onPress={() => router.replace('/youtube')} /> : null}
 
         {isOpen(transfer) && transfer.status !== 'collecting' ? (
           <Pressable onPress={confirmCancel} disabled={busy} accessibilityRole="button" style={{ alignItems: 'center', padding: 8 }}>

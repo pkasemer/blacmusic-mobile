@@ -11,6 +11,8 @@ export interface Artist {
   name: string;
   bio?: string;
   avatarUrl: string | null;
+  /** A bigger version of the picture, for the hero of the page. Absent when there is none. */
+  avatarLargeUrl?: string | null;
   verification: VerificationStatus;
   monthlyListeners?: number;
   followerCount?: number;
@@ -29,11 +31,17 @@ export interface Track {
   title: string;
   artistId: string;
   artistName: string;
+  /** The artist has the verified badge. Absent when the backend did not say. */
+  artistVerified?: boolean;
+  /** The song has lyrics. Absent when the backend did not say (the player then tries to load them). */
+  hasLyrics?: boolean;
   /** The artist's profile picture, when the backend sends it with the track. */
   artistImageUrl?: string | null;
   releaseId: string | null;
   albumTitle: string | null;
   artworkUrl: string | null;
+  /** A bigger version of the cover, for the hero of a detail page. Absent when there is none. */
+  artworkLargeUrl?: string | null;
   /** Length in seconds. */
   durationSec: number;
   /**
@@ -88,8 +96,12 @@ export interface Album {
   type: ReleaseType;
   title: string;
   artworkUrl: string | null;
+  /** A bigger version of the cover, for the hero of a detail page. Absent when there is none. */
+  artworkLargeUrl?: string | null;
   artistId: string;
   artistName: string;
+  /** The artist has the verified badge. */
+  artistVerified?: boolean;
   /** ISO date. */
   releaseDate?: string;
   trackCount: number;
@@ -113,6 +125,8 @@ export interface Playlist {
   ownerId?: string;
   /** A cover chosen for the playlist, when there is one. */
   artworkUrl: string | null;
+  /** A bigger version of the cover, for the hero of a detail page. Absent when there is none. */
+  artworkLargeUrl?: string | null;
   /** Covers of its first songs, drawn as a 2 by 2 mosaic when there is no chosen cover. */
   artworkUrls: string[];
   trackCount: number;

@@ -274,11 +274,20 @@ async function sendParts(key: string, handle: Handle, parts: { number: number; u
 /** Tells the backend the file is in. If it says parts are missing, sends them and asks again. */
 async function finish(key: string, handle: Handle) {
   const uploadId = handle.uploadId as string;
+  let tries = 0;
   for (let round = 0; ; round++) {
     try {
       await studioApi.completeUpload(uploadId);
       return;
     } catch (error) {
+      // A dropped connection can lose the answer even though the server got the request: ask again a couple of times,
+      // and if the server says the upload is already finished, that is what we wanted.
+      if (error instanceof ApiError && error.code === 'network' && ++tries <= 2) {
+        await sleep(1000 * tries);
+        round--;
+        continue;
+      }
+      if (tries > 0 && error instanceof ApiError && error.status === 409) return;
       const missing = error instanceof ApiError && error.code === 'parts_missing';
       if (!missing || !handle.multipart || round >= 2) throw error;
       await sendParts(key, handle, await studioApi.getMissingParts(uploadId));
@@ -288,10 +297,24 @@ async function finish(key: string, handle: Handle) {
 
 async function waitUntilReady(key: string, uploadId: string) {
   const deadline = Date.now() + POLL_FOR_MS;
+  let missedChecks = 0;
   while (Date.now() < deadline) {
     await sleep(POLL_EVERY_MS);
     if (!store().jobs[key]) return; // dismissed
-    const status = await studioApi.getUploadStatus(uploadId);
+    let status: Awaited<ReturnType<typeof studioApi.getUploadStatus>>;
+    try {
+      status = await studioApi.getUploadStatus(uploadId);
+      missedChecks = 0;
+    } catch (error) {
+      // The file is already with the server, which carries on without us, so a missed check is not a failed upload.
+      // When the server no longer knows the upload it has been turned into a track.
+      if (error instanceof ApiError && error.status === 404) {
+        store().patch(key, { state: 'ready' });
+        return;
+      }
+      if (++missedChecks >= 6) throw error;
+      continue;
+    }
     if (status.status === 'ready') {
       store().patch(key, { state: 'ready' });
       haptics.success();

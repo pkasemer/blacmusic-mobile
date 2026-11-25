@@ -1,16 +1,16 @@
 import { useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, View } from 'react-native';
+import { ActivityIndicator, Alert, View } from 'react-native';
 import Animated from 'react-native-reanimated';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Globe, Lock, Pencil } from 'lucide-react-native';
+import { Pencil } from 'lucide-react-native';
 import { blacApi } from '@/api/blac';
 import { refreshPlaylistQueries } from '@/api/blac/playlistCache';
 import { usePlaylist } from '@/api/blac/queries';
 import { playQueue } from '@/audio/music/musicEngine';
 import { DownloadAllButton, ShareLinkButton } from '@/components/CollectionActions';
-import { DetailHero, useHeroScroll } from '@/components/DetailHero';
-import { PlayAllBar } from '@/components/PlayAllBar';
+import { DetailHero, HeroCover, HeroMeta, HeroTitle, useHeroCoverSize, useHeroScroll } from '@/components/DetailHero';
+import { BarButton, PlayAllBar } from '@/components/PlayAllBar';
 import { PlaylistCover } from '@/components/PlaylistCover';
 import { PlaylistFormSheet } from '@/components/PlaylistSheets';
 import { ScreenState } from '@/components/ScreenState';
@@ -20,7 +20,7 @@ import { useTrackMenu } from '@/components/TrackActionSheet';
 import { TrackRow } from '@/components/TrackRow';
 import { useAuthStore } from '@/store/authStore';
 import { showToast } from '@/store/toastStore';
-import { radius, useTheme } from '@/theme';
+import { useTheme } from '@/theme';
 import { haptics } from '@/utils/haptics';
 import { formatTotalLength } from '@/utils/format';
 
@@ -35,6 +35,7 @@ export default function PlaylistScreen() {
   const me = useAuthStore((s) => s.user?.id);
   const [editing, setEditing] = useState(false);
   const query = usePlaylist(id);
+  const cover = useHeroCoverSize();
 
   if (query.isPending) {
     return (
@@ -80,6 +81,7 @@ export default function PlaylistScreen() {
   const totalSec = tracks.reduce((sum, t) => sum + t.durationSec, 0);
   const meta = [
     playlist.ownerName ? `By ${playlist.ownerName}` : null,
+    mine ? (playlist.isPublic ? 'Public' : 'Private') : null,
     `${tracks.length} ${tracks.length === 1 ? 'song' : 'songs'}`,
     tracks.length > 0 ? formatTotalLength(totalSec) : null,
   ]
@@ -94,68 +96,21 @@ export default function PlaylistScreen() {
         onScroll={onScroll}
         scrollEventThrottle={16}
         style={{ backgroundColor: colors.bg }}
-        contentInsetAdjustmentBehavior="never"
-        contentContainerStyle={{ paddingBottom: insets.bottom + 40, gap: 28 }}
+        contentInsetAdjustmentBehavior="automatic"
+        contentContainerStyle={{ paddingBottom: insets.bottom + 40, gap: 24 }}
         showsVerticalScrollIndicator={false}
       >
         <DetailHero scrollY={scrollY} artwork={{ id: playlist.id, logoUrl: tintSource }}>
-          <PlaylistCover playlist={playlist} size={224} />
-          <Text variant="title" numberOfLines={3} style={{ textAlign: 'center' }}>
-            {playlist.name}
-          </Text>
+          <HeroCover size={cover}>
+            <PlaylistCover playlist={{ ...playlist, artworkUrl: playlist.artworkLargeUrl ?? playlist.artworkUrl }} size={cover} />
+          </HeroCover>
+          <HeroTitle>{playlist.name}</HeroTitle>
           {playlist.description ? (
-            <Text variant="body" color="textSecondary" numberOfLines={3} style={{ textAlign: 'center' }}>
+            <Text variant="body" color="textSecondary" numberOfLines={3} style={{ textAlign: 'center', paddingHorizontal: 8 }}>
               {playlist.description}
             </Text>
           ) : null}
-          <Text variant="caption" color="textSecondary">
-            {meta}
-          </Text>
-          {mine ? (
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-              <View
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  gap: 6,
-                  paddingHorizontal: 12,
-                  paddingVertical: 6,
-                  borderRadius: radius.pill,
-                  borderWidth: 1,
-                  borderColor: colors.border,
-                  backgroundColor: colors.surfaceAlt,
-                }}
-              >
-                {playlist.isPublic ? <Globe size={13} color={colors.text} /> : <Lock size={13} color={colors.text} />}
-                <Text variant="caption" color="text">
-                  {playlist.isPublic ? 'Public' : 'Private'}
-                </Text>
-              </View>
-              <Pressable
-                onPress={() => {
-                  haptics.select();
-                  setEditing(true);
-                }}
-                accessibilityRole="button"
-                accessibilityLabel="Edit this playlist"
-                style={({ pressed }) => ({
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  gap: 6,
-                  paddingHorizontal: 12,
-                  paddingVertical: 6,
-                  borderRadius: radius.pill,
-                  backgroundColor: colors.primarySoft,
-                  opacity: pressed ? 0.7 : 1,
-                })}
-              >
-                <Pencil size={13} color={colors.accent} />
-                <Text variant="caption" color="accent">
-                  Edit
-                </Text>
-              </Pressable>
-            </View>
-          ) : null}
+          <HeroMeta>{meta}</HeroMeta>
         </DetailHero>
 
         <PlayAllBar
@@ -169,6 +124,17 @@ export default function PlaylistScreen() {
                 path={`/playlist/${playlist.id}`}
               />
               <DownloadAllButton tracks={tracks} what="playlist" />
+              {mine ? (
+                <BarButton
+                  label="Edit this playlist"
+                  onPress={() => {
+                    haptics.select();
+                    setEditing(true);
+                  }}
+                >
+                  <Pencil size={18} color={colors.text} />
+                </BarButton>
+              ) : null}
             </>
           }
         />

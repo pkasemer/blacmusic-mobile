@@ -54,7 +54,7 @@ function DeleteForm() {
     <View style={{ paddingHorizontal: 20, gap: 14 }}>
       <Text variant="title">Delete your account</Text>
       <Text variant="body" color="textSecondary">
-        This removes your account and everything in it: your playlists, favourites, listening history and downloads. If you are an artist, it also removes your
+        This removes your account and everything in it: your playlists, likes, listening history and downloads. If you are an artist, it also removes your
         artist profile, your releases and songs, and your YouTube connection. Apple or Google sign-in is not affected.
       </Text>
 

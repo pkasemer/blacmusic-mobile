@@ -98,8 +98,10 @@ export async function unregisterPushToken(): Promise<void> {
 export interface NotificationPrefs {
   /** A YouTube import finished or needs attention. */
   transfers: boolean;
-  /** A scheduled release went live. */
+  /** Your release's audio is ready, or a scheduled release went live. */
   releases: boolean;
+  /** The emails about releases (audio ready, published). Independent of the push switches. */
+  releaseEmails: boolean;
 }
 
 export const getNotificationPrefs = () => apiRequest<NotificationPrefs>('/v1/me/notification-settings');

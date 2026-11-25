@@ -117,9 +117,9 @@ export default function ManualSongsScreen() {
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
       <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 230, gap: 22 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
         <View style={{ gap: 6 }}>
-          <Text variant="title">Add songs by hand</Text>
+          <Text variant="title">Upload from your phone</Text>
           <Text variant="body" color="textSecondary">
-            Name your songs, then choose the audio file for each one. Use this for music that is not on YouTube.
+            Name your songs, then choose the audio file for each one on the next screen.
           </Text>
         </View>
 

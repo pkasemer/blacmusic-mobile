@@ -71,6 +71,8 @@ export interface TransferItem {
   uploadId?: string | null;
   trackId?: string | null;
   error?: string | null;
+  genre?: string;
+  explicit?: boolean;
   /** Where this song's audio comes from: the server fetches it from YouTube, or the artist uploads a file. */
   audioSource?: 'youtube' | 'upload';
   duplicateOf?: string;
@@ -121,6 +123,8 @@ export interface YouTubeApi {
   /** `rights` is the artist's confirmation that they own the songs; the server requires it when it fetches any audio. */
   createTransfer(items: NewTransferItem[], idempotencyKey: string, rights?: { termsVersion: string }): Promise<Transfer>;
   attachAudio(transferId: string, itemId: string, uploadId: string): Promise<Transfer>;
+  /** Changes a song's title, genre or explicit flag while the transfer is still collecting. */
+  updateItem(transferId: string, itemId: string, patch: { title?: string; genre?: string; explicit?: boolean }): Promise<Transfer>;
   /** Takes the file out of a song (while the transfer is still collecting): it goes back to waiting for audio. */
   removeAudio(transferId: string, itemId: string): Promise<Transfer>;
   dropItem(transferId: string, itemId: string): Promise<void>;
@@ -171,6 +175,9 @@ const httpYouTube: YouTubeApi = {
       method: 'POST',
       body: { uploadId },
     }),
+
+  updateItem: (transferId, itemId, patch) =>
+    apiRequest<Transfer>(`/v1/transfers/${encodeURIComponent(transferId)}/items/${encodeURIComponent(itemId)}`, { method: 'PATCH', body: patch }),
 
   removeAudio: (transferId, itemId) =>
     apiRequest<Transfer>(`/v1/transfers/${encodeURIComponent(transferId)}/items/${encodeURIComponent(itemId)}/audio`, { method: 'DELETE' }),
@@ -287,6 +294,15 @@ const mockYouTube: YouTubeApi = {
     const item = mockTransfer?.items.find((i) => i.id === itemId);
     if (item) item.status = 'waiting';
     return wait({ ...(mockTransfer as Transfer) }, 200);
+  },
+  updateItem: async (_t, itemId, patch) => {
+    const item = mockTransfer?.items.find((i) => i.id === itemId);
+    if (item) {
+      if (patch.title) item.title = patch.title;
+      if (patch.genre !== undefined) item.genre = patch.genre;
+      if (patch.explicit !== undefined) item.explicit = patch.explicit;
+    }
+    return wait({ ...(mockTransfer as Transfer) }, 150);
   },
   removeAudio: async (_t, itemId) => {
     const item = mockTransfer?.items.find((i) => i.id === itemId);

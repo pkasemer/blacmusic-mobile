@@ -39,7 +39,7 @@ export function describeSource(source: PlaybackSource): { kind: string; name?: s
     case 'radio':
       return { kind: 'Radio', name: source.name };
     case 'favourites':
-      return { kind: 'Your favourites' };
+      return { kind: 'Your likes' };
     case 'downloads':
       return { kind: 'Downloads' };
     case 'recent':

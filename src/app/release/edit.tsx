@@ -91,7 +91,15 @@ function EditForm({ id, data }: { id: string; data: ReleaseDetail }) {
           coverImageId,
         });
       }
-      for (const t of changedTracks) await studioApi.updateTrack(t.id, { title: trackTitles[t.id] });
+      for (const t of changedTracks) {
+        try {
+          await studioApi.updateTrack(t.id, { title: trackTitles[t.id] });
+        } catch (e) {
+          // Say which song, since the ones before it were saved.
+          void queryClient.invalidateQueries({ queryKey: ['studio'] });
+          throw new Error(`Couldn't rename “${t.title}”: ${e instanceof Error ? e.message : 'try again.'}`);
+        }
+      }
       void queryClient.invalidateQueries({ queryKey: ['studio'] });
       haptics.success();
       router.back();

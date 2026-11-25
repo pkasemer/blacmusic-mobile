@@ -181,7 +181,7 @@ export default function YouTubeReviewScreen() {
           title="Connect YouTube first"
           message={connection.data?.needsReconnect ? 'Google stopped allowing access. Connect again to carry on.' : 'We need your channel to find your songs.'}
           actionLabel="Connect YouTube"
-          onAction={() => router.replace('/youtube')}
+          onAction={() => router.replace('/youtube/connect')}
         />
       </View>
     );
@@ -195,7 +195,7 @@ export default function YouTubeReviewScreen() {
           title={connectProblem ? 'Connect YouTube again' : "Couldn't read your channel"}
           message={youtubeErrorText(videosQuery.error)}
           actionLabel={connectProblem ? 'Connect YouTube' : 'Try again'}
-          onAction={() => (connectProblem ? router.replace('/youtube') : void videosQuery.refetch())}
+          onAction={() => (connectProblem ? router.replace('/youtube/connect') : void videosQuery.refetch())}
         />
       </View>
     );

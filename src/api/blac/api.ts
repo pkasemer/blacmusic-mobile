@@ -59,6 +59,10 @@ export interface BlacApi {
   getNewReleaseAlbums(): Promise<Album[]>;
   getArtist(id: string): Promise<Artist | null>;
   getArtistAlbums(artistId: string): Promise<Album[]>;
+  /** Artists like this one, never the artist itself. */
+  getRelatedArtists(artistId: string): Promise<Artist[]>;
+  /** Releases like this one (same genre first), never the release itself. `genre` and `artistId` help when the server cannot say. */
+  getRelatedAlbums(album: Album): Promise<Album[]>;
   /** The artist's most popular tracks, best first. */
   getArtistPopularTracks(artistId: string): Promise<Track[]>;
   getAlbum(id: string): Promise<AlbumDetail | null>;
@@ -82,6 +86,10 @@ export interface BlacApi {
   removeFromPlaylist(playlistId: string, itemId: string): Promise<void>;
   /** Public playlists (editorial and user made) whose name, description or owner match the text. */
   searchPlaylists(query: string): Promise<Playlist[]>;
+  /** Artists whose name matches. */
+  searchArtists(query: string): Promise<Artist[]>;
+  /** Albums, EPs and singles whose title (or artist) matches. */
+  searchAlbums(query: string): Promise<Album[]>;
   /** Songs that sound like `track` (same genre or same artist), for "Start radio". The song itself is not included. */
   getSimilarTracks(track: Track): Promise<Track[]>;
   /** Follows or unfollows an artist. */

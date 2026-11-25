@@ -1,21 +1,28 @@
+import { useState } from 'react';
 import { ActivityIndicator, Pressable, View } from 'react-native';
 import Animated from 'react-native-reanimated';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ChevronRight, Disc3, Play, UserRound } from 'lucide-react-native';
+import { ChevronRight, Disc3, ListPlus, Play, UserRound } from 'lucide-react-native';
 import { useArtistTracks, useTrack } from '@/api/blac/queries';
+import { useTrackCredits } from '@/api/blac/credits';
+import { CreditsSection } from '@/components/CreditsSection';
 import { playQueue } from '@/audio/music/musicEngine';
 import { formatTime } from '@/audio/music/queue';
 import { Artwork } from '@/components/Artwork';
 import { Card } from '@/components/Card';
+import { DownloadAllButton, ShareLinkButton } from '@/components/CollectionActions';
 import { Chip } from '@/components/Chip';
-import { DetailHero, useHeroScroll } from '@/components/DetailHero';
+import { DetailHero, HeroCover, HeroMeta, HeroTitle, useHeroCoverSize, useHeroScroll } from '@/components/DetailHero';
 import { FavouriteButton } from '@/components/FavouriteButton';
+import { BarButton } from '@/components/PlayAllBar';
+import { AddToPlaylistSheet } from '@/components/PlaylistSheets';
 import { ScreenState } from '@/components/ScreenState';
+import { ArtistName } from '@/components/ArtistName';
 import { Text } from '@/components/Text';
 import { TrackRow } from '@/components/TrackRow';
 import { TabScreen } from '@/components/TabScreen';
-import { radius, useTheme } from '@/theme';
+import { useTheme } from '@/theme';
 import { formatDate } from '@/utils/format';
 
 function InfoRow({ label, value, last }: { label: string; value: string; last?: boolean }) {
@@ -82,6 +89,9 @@ export default function TrackScreen() {
   const query = useTrack(id);
   const track = query.data;
   const more = useArtistTracks(track?.artistId ?? '');
+  const cover = useHeroCoverSize();
+  const [adding, setAdding] = useState(false);
+  const credits = useTrackCredits(id);
 
   if (query.isPending) {
     return (
@@ -114,15 +124,15 @@ export default function TrackScreen() {
         onScroll={onScroll}
         scrollEventThrottle={16}
         style={{ backgroundColor: colors.bg }}
-        contentInsetAdjustmentBehavior="never"
-        contentContainerStyle={{ paddingBottom: insets.bottom + 40, gap: 28 }}
+        contentInsetAdjustmentBehavior="automatic"
+        contentContainerStyle={{ paddingBottom: insets.bottom + 40, gap: 24 }}
         showsVerticalScrollIndicator={false}
       >
         <DetailHero scrollY={scrollY} artwork={{ id: track.id, logoUrl: track.artworkUrl }}>
-          <Artwork id={track.id} logoUrl={track.artworkUrl} size={240} />
-          <Text variant="title" numberOfLines={3} style={{ textAlign: 'center' }}>
-            {track.title}
-          </Text>
+          <HeroCover size={cover}>
+            <Artwork id={track.id} logoUrl={track.artworkLargeUrl ?? track.artworkUrl} size={cover} />
+          </HeroCover>
+          <HeroTitle>{track.title}</HeroTitle>
           {track.artistId ? (
             <Pressable
               onPress={() => router.push({ pathname: '/artist/[id]', params: { id: track.artistId } })}
@@ -130,15 +140,13 @@ export default function TrackScreen() {
               accessibilityLabel={`Open artist ${track.artistName}`}
               hitSlop={8}
             >
-              <Text variant="bodyStrong">{track.artistName}</Text>
+              <ArtistName name={track.artistName} verified={track.artistVerified} variant="body" color="accent" style={{ justifyContent: 'center' }} textStyle={{ fontWeight: '600' }} />
             </Pressable>
           ) : (
-            <Text variant="bodyStrong">{track.artistName}</Text>
+            <ArtistName name={track.artistName} verified={track.artistVerified} variant="body" color="textSecondary" style={{ justifyContent: 'center' }} />
           )}
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8 }}>
-            {track.explicit ? <Chip label="Explicit" glass /> : null}
-            {track.genre ? <Chip label={track.genre} glass /> : null}
-          </View>
+          <HeroMeta>{[track.albumTitle, track.genre, formatTime(track.durationSec)].filter(Boolean).join(' · ')}</HeroMeta>
+          {track.explicit ? <Chip label="Explicit" glass /> : null}
         </DetailHero>
 
         {/* Big Play button with the heart beside it */}
@@ -153,8 +161,8 @@ export default function TrackScreen() {
               alignItems: 'center',
               justifyContent: 'center',
               gap: 8,
-              paddingVertical: 14,
-              borderRadius: radius.pill,
+              height: 50,
+              borderRadius: 14,
               backgroundColor: colors.primary,
               opacity: pressed ? 0.85 : 1,
             })}
@@ -165,6 +173,17 @@ export default function TrackScreen() {
             </Text>
           </Pressable>
           <FavouriteButton itemId={track.id} variant="box" />
+        </View>
+
+        {/* Add to a playlist, save for offline, share */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 16, marginTop: -8 }}>
+          {track.preview ? null : (
+            <BarButton label="Add to playlist" onPress={() => setAdding(true)}>
+              <ListPlus size={20} color={colors.text} />
+            </BarButton>
+          )}
+          <DownloadAllButton tracks={[track]} what="song" />
+          <ShareLinkButton label={`Share ${track.title}`} message={`Listen to "${track.title}" by ${track.artistName} on Blac`} path={`/track/${track.id}`} />
         </View>
 
         <View style={{ gap: 12, paddingHorizontal: 20 }}>
@@ -192,6 +211,8 @@ export default function TrackScreen() {
           </Card>
         </View>
 
+        <CreditsSection credits={credits.data} />
+
         {others.length > 0 ? (
           <View style={{ gap: 8 }}>
             <Text variant="title" style={{ paddingHorizontal: 20 }}>
@@ -205,6 +226,7 @@ export default function TrackScreen() {
           </View>
         ) : null}
       </Animated.ScrollView>
+      <AddToPlaylistSheet track={adding ? track : null} onClose={() => setAdding(false)} />
     </TabScreen>
   );
 }

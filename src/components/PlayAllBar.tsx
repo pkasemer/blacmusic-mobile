@@ -4,10 +4,10 @@ import { Play, Shuffle } from 'lucide-react-native';
 import { playQueue } from '@/audio/music/musicEngine';
 import type { PlaybackSource } from '@/audio/music/source';
 import type { Playable } from '@/domain/types';
-import { radius, useTheme } from '@/theme';
+import { useTheme } from '@/theme';
 import { Text } from './Text';
 
-/** A round-cornered outlined button for the bar, such as Share or Download. */
+/** A round tool button for under the Play and Shuffle buttons, such as Share or Download. */
 export function BarButton({
   label,
   onPress,
@@ -27,12 +27,12 @@ export function BarButton({
       accessibilityLabel={label}
       accessibilityState={{ selected: !!active }}
       style={({ pressed }) => ({
-        width: 52,
+        width: 46,
+        height: 46,
         alignItems: 'center',
         justifyContent: 'center',
-        borderRadius: radius.pill,
-        borderWidth: 1,
-        borderColor: active ? colors.accent : colors.borderStrong,
+        borderRadius: 23,
+        backgroundColor: active ? colors.primarySoft : colors.surfaceAlt,
         opacity: pressed ? 0.7 : 1,
       })}
     >
@@ -60,18 +60,20 @@ export function PlayAllBar({
   const { colors } = useTheme();
   if (items.length === 0) return null;
   return (
-    <View style={{ flexDirection: 'row', gap: 10, paddingHorizontal: 20, paddingBottom: 6 }}>
+    <View style={{ gap: 14, paddingHorizontal: 20, paddingBottom: 6 }}>
+    <View style={{ flexDirection: 'row', gap: 12 }}>
       <Pressable
         onPress={() => playQueue(items, 0, { shuffle: false, source })}
         accessibilityRole="button"
         style={({ pressed }) => ({
           flex: 1,
+          height: 50,
           flexDirection: 'row',
           alignItems: 'center',
           justifyContent: 'center',
           gap: 8,
-          paddingVertical: 13,
-          borderRadius: radius.pill,
+          borderRadius: 14,
+          borderCurve: 'continuous',
           backgroundColor: colors.primary,
           opacity: pressed ? 0.85 : 1,
         })}
@@ -86,18 +88,24 @@ export function PlayAllBar({
         accessibilityRole="button"
         accessibilityLabel="Shuffle"
         style={({ pressed }) => ({
-          width: 52,
+          flex: 1,
+          height: 50,
+          flexDirection: 'row',
           alignItems: 'center',
           justifyContent: 'center',
-          borderRadius: radius.pill,
-          borderWidth: 1,
-          borderColor: colors.borderStrong,
+          gap: 8,
+          borderRadius: 14,
+          borderCurve: 'continuous',
+          backgroundColor: colors.surfaceAlt,
           opacity: pressed ? 0.7 : 1,
         })}
       >
-        <Shuffle size={18} color={colors.text} />
+        <Shuffle size={17} color={colors.text} />
+        <Text variant="bodyStrong">Shuffle</Text>
       </Pressable>
-      {extra}
+    </View>
+    {/* The round tools (share, download, edit…) sit in their own row under the two big buttons */}
+    {extra ? <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 16 }}>{extra}</View> : null}
     </View>
   );
 }

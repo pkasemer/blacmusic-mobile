@@ -6,6 +6,7 @@ import { radius, useTheme } from '@/theme';
 import { haptics } from '@/utils/haptics';
 import { Artwork } from './Artwork';
 import { PlayButton } from './PlayButton';
+import { ArtistName } from './ArtistName';
 import { Text } from './Text';
 import { subtitleOf } from './TrackRow';
 
@@ -48,9 +49,7 @@ export function MusicMiniPlayer({ item }: { item: Playable }) {
           <Text variant="headline" numberOfLines={1}>
             {item.title}
           </Text>
-          <Text variant="caption" color="textSecondary" numberOfLines={1}>
-            {subtitleOf(item)}
-          </Text>
+          <ArtistName name={subtitleOf(item)} verified={item.kind === 'track' ? item.artistVerified : false} />
         </View>
         <PlayButton phase={phase} size={40} onPress={toggleMusicPlayback} />
       </Pressable>
@@ -80,9 +79,7 @@ export function MusicMiniAccessory({ item, inline }: { item: Playable; inline: b
           {item.title}
         </Text>
         {inline ? null : (
-          <Text variant="caption" color="textSecondary" numberOfLines={1}>
-            {subtitleOf(item)}
-          </Text>
+          <ArtistName name={subtitleOf(item)} verified={item.kind === 'track' ? item.artistVerified : false} />
         )}
       </View>
       <PlayButton phase={phase} size={inline ? 30 : 36} tone="plain" onPress={toggleMusicPlayback} />

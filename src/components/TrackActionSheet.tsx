@@ -14,6 +14,7 @@ import { radius, useTheme } from '@/theme';
 import { haptics } from '@/utils/haptics';
 import { Artwork } from './Artwork';
 import { AddToPlaylistSheet } from './PlaylistSheets';
+import { ArtistName } from './ArtistName';
 import { Text } from './Text';
 
 const CLOSE_MS = 200;
@@ -142,7 +143,10 @@ function TrackActionSheet({
 
   const onArtist = () => {
     haptics.select();
-    dismiss(() => router.push({ pathname: '/artist/[id]', params: { id: track.artistId } }));
+    dismiss(() => {
+      options?.onNavigate?.();
+      router.push({ pathname: '/artist/[id]', params: { id: track.artistId } });
+    });
   };
 
   const onRadio = async () => {
@@ -189,16 +193,14 @@ function TrackActionSheet({
                 <Text variant="headline" numberOfLines={1}>
                   {track.title}
                 </Text>
-                <Text variant="caption" color="textSecondary" numberOfLines={1}>
-                  {track.artistName}
-                </Text>
+                <ArtistName name={track.artistName} verified={track.artistVerified} />
               </View>
             </View>
             <View style={{ height: 1, backgroundColor: colors.border, marginBottom: 6 }} />
 
             <ActionRow
               icon={<Heart size={22} color={favourite ? colors.accent : iconColor} fill={favourite ? colors.accent : 'none'} />}
-              label={favourite ? 'Remove from favourites' : 'Add to favourites'}
+              label={favourite ? 'Remove from likes' : 'Add to likes'}
               onPress={onFavourite}
             />
             <ActionRow icon={<ListPlus size={22} color={iconColor} />} label="Add to playlist" onPress={onAddToPlaylist} />
@@ -240,6 +242,8 @@ function TrackActionSheet({
 export interface TrackMenuOptions {
   /** Shows a red "Remove from this playlist" row that runs this. */
   onRemove?: () => void;
+  /** Runs just before the menu opens another page (the full player uses it to close itself first). */
+  onNavigate?: () => void;
   removeLabel?: string;
 }
 

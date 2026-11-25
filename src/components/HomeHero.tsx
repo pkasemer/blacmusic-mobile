@@ -7,7 +7,6 @@ import { radius, useTheme } from '@/theme';
 import { haptics } from '@/utils/haptics';
 import { greeting } from '@/utils/timeAgo';
 import { Avatar } from './Avatar';
-import { HeroWash } from './ScreenHero';
 import { Text } from './Text';
 
 /** One quick-access tile: a cover (or icon) and a title. Tapping runs `onPress`. */
@@ -48,7 +47,7 @@ function Tile({ tile }: { tile: HomeTile }) {
 }
 
 /**
- * The top of Home: a soft purple wash, your picture (opens Settings), a greeting with your name, a search button
+ * The top of Home: your picture (opens Settings), a greeting with your name, a search button
  * and a grid of quick-access tiles (your favourites, playlists and recent songs; picks for newcomers).
  */
 export function HomeHero({ tiles }: { tiles: HomeTile[] }) {
@@ -60,8 +59,6 @@ export function HomeHero({ tiles }: { tiles: HomeTile[] }) {
 
   return (
     <View style={{ gap: 20 }}>
-      <HeroWash />
-
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 20 }}>
         {user ? (
           <Pressable

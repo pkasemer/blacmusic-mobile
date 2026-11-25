@@ -1,13 +1,9 @@
-import { Pressable, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { ChevronRight, CirclePlay } from 'lucide-react-native';
+import { Upload } from 'lucide-react-native';
 import { useActiveTransfer } from '@/api/blac/youtubeQueries';
 import type { Transfer } from '@/api/blac/youtube';
-import { useTheme } from '@/theme';
 import { haptics } from '@/utils/haptics';
-import { Card } from './Card';
-import { ProgressBar } from './ProgressBar';
-import { Text } from './Text';
+import { SettingsRow } from './SettingsList';
 
 /** One line about where an open transfer is. */
 function statusLine(t: Transfer): string {
@@ -25,41 +21,25 @@ function statusLine(t: Transfer): string {
 }
 
 /**
- * Studio's way into the YouTube import. When a transfer is going on it shows where it is and reopens it (this is
- * how an artist gets back to it after closing the app); otherwise it invites the artist to start one.
+ * Studio's way into importing songs, as a row. When an import is going on it says where it is and reopens it (this
+ * is how an artist gets back to it after closing the app); otherwise it opens the list of ways to import.
  */
-export function YouTubeCard() {
-  const { colors } = useTheme();
+export function ImportSongsRow() {
   const router = useRouter();
   const active = useActiveTransfer();
   const transfer = active.data;
 
   return (
-    <Pressable
+    <SettingsRow
+      icon={{ Icon: Upload }}
+      title={transfer ? 'Import in progress' : 'Import songs'}
+      subtitle={transfer ? statusLine(transfer) : 'Bring songs over from your files, with more ways coming.'}
+      chevron
       onPress={() => {
         haptics.select();
         if (transfer) router.push({ pathname: '/youtube/transfer/[id]', params: { id: transfer.id } });
         else router.push('/youtube');
       }}
-      accessibilityRole="button"
-      accessibilityLabel={transfer ? `Import in progress. ${statusLine(transfer)}` : 'Import songs'}
-      style={({ pressed }) => ({ opacity: pressed ? 0.8 : 1 })}
-    >
-      <Card style={{ padding: 16, gap: 12 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
-          <View style={{ width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primarySoft }}>
-            <CirclePlay size={22} color={colors.accent} />
-          </View>
-          <View style={{ flex: 1, gap: 2 }}>
-            <Text variant="headline">{transfer ? 'Import in progress' : 'Import songs'}</Text>
-            <Text variant="caption" color="textSecondary">
-              {transfer ? statusLine(transfer) : 'Bring songs over from YouTube, or add them by hand.'}
-            </Text>
-          </View>
-          <ChevronRight size={20} color={colors.textTertiary} />
-        </View>
-        {transfer && transfer.status === 'in_progress' ? <ProgressBar value={transfer.progress.percent / 100} /> : null}
-      </Card>
-    </Pressable>
+    />
   );
 }

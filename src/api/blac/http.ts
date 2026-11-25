@@ -65,6 +65,11 @@ async function send(path: string, options: RequestOptions, token: string | null)
 async function toApiError(response: Response): Promise<ApiError> {
   let code = 'error';
   let message = `Something went wrong (${response.status}).`;
+  // "Method not allowed": this server is older than the app and does not have that feature yet.
+  if (response.status === 405) {
+    code = 'not_supported';
+    message = "The server doesn't support that yet. It needs an update, so try again later.";
+  }
   let details: Record<string, unknown> | undefined;
   try {
     const json = (await response.json()) as { error?: { code?: string; message?: string; details?: Record<string, unknown> } };

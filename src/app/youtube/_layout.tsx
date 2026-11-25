@@ -22,9 +22,10 @@ export default function YouTubeLayout() {
         ),
       }}
     >
-      <Stack.Screen name="index" options={{ title: 'Import from YouTube' }} />
+      <Stack.Screen name="index" options={{ title: 'Import songs' }} />
+      <Stack.Screen name="connect" options={{ title: 'Import from YouTube' }} />
       <Stack.Screen name="review" options={{ title: 'Choose songs' }} />
-      <Stack.Screen name="manual" options={{ title: 'Add songs' }} />
+      <Stack.Screen name="manual" options={{ title: 'Upload songs' }} />
       <Stack.Screen name="transfer/[id]" options={{ title: 'Your transfer' }} />
     </Stack>
   );

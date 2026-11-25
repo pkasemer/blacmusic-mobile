@@ -14,7 +14,7 @@ export function artistsFromTracks(tracks: Track[]): Artist[] {
       id: t.artistId,
       name: t.artistName,
       avatarUrl: t.artistImageUrl ?? null,
-      verification: 'unverified',
+      verification: t.artistVerified ? 'verified' : 'unverified',
     });
   }
   return [...seen.values()];
@@ -33,6 +33,7 @@ export function albumsFromTracks(tracks: Track[]): Album[] {
       artworkUrl: t.artworkUrl,
       artistId: t.artistId,
       artistName: t.artistName,
+      artistVerified: t.artistVerified,
       releaseDate: t.releaseDate,
       trackCount,
     });

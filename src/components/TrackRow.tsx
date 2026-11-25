@@ -6,8 +6,10 @@ import type { Playable } from '@/domain/types';
 import { useDownload } from '@/store/downloadStore';
 import { useMusicStore } from '@/store/musicStore';
 import { useTheme } from '@/theme';
+import { ArtistName } from './ArtistName';
 import { Artwork } from './Artwork';
 import { Equalizer } from './Equalizer';
+import { TagPill } from './SearchResultRow';
 import { Text } from './Text';
 
 export const subtitleOf = (item: Playable) => (item.kind === 'track' ? item.artistName : item.podcastTitle);
@@ -28,6 +30,8 @@ interface Props {
   onPlay?: () => void;
   /** When set, the row ends with a three-dots button that calls this (to open the song's menu). */
   onMore?: () => void;
+  /** A small label before the artist, such as "Song" in search results. */
+  tag?: string;
   /** Extra text after the artist, such as a download size or state. */
   detail?: string;
   detailTone?: 'normal' | 'danger';
@@ -40,7 +44,7 @@ interface Props {
  * and on the right the length (numbered lists), a play button and a three-dots button when asked for. The song that
  * is playing is picked out in purple, with moving bars over its cover. A hairline separates rows.
  */
-function TrackRowBase({ item, onPress, compact, index, onPlay, onMore, detail, detailTone = 'normal', separator = true }: Props) {
+function TrackRowBase({ item, onPress, compact, index, onPlay, onMore, tag, detail, detailTone = 'normal', separator = true }: Props) {
   const { colors } = useTheme();
   // Re-render only when this row's own "is it the current item / is it playing" answer changes.
   const isCurrent = useMusicStore((s) => s.active && s.queue[s.index]?.id === item.id);
@@ -105,6 +109,7 @@ function TrackRowBase({ item, onPress, compact, index, onPlay, onMore, detail, d
           {item.title}
         </Text>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          {tag ? <TagPill label={tag} /> : null}
           {explicit ? (
             <View style={{ paddingHorizontal: 4, borderRadius: 3, backgroundColor: colors.textTertiary, alignItems: 'center' }}>
               <Text variant="label" style={{ fontSize: 9, lineHeight: 13, letterSpacing: 0.4, color: colors.bg }}>
@@ -117,9 +122,8 @@ function TrackRowBase({ item, onPress, compact, index, onPlay, onMore, detail, d
           ) : download ? (
             <CircleArrowDown size={14} color={colors.textTertiary} />
           ) : null}
-          <Text variant="caption" color="textSecondary" numberOfLines={1} style={{ flexShrink: 1 }}>
-            {subtitleOf(item)}
-          </Text>
+          <ArtistName name={subtitleOf(item)} verified={item.kind === 'track' ? item.artistVerified : false} />
+
           {detail ? (
             <Text variant="caption" color={detailTone === 'danger' ? 'danger' : 'textTertiary'} numberOfLines={1}>
               · {detail}

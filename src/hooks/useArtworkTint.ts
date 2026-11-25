@@ -17,6 +17,11 @@ export function useArtworkTint(item: { id: string; logoUrl: string | null } | nu
  * (clearly different hues), for backdrops that should look like the artwork. Never empty.
  */
 export function useArtworkPalette(item: { id: string; logoUrl: string | null } | null): string[] {
+  return useArtworkPaletteState(item).palette;
+}
+
+/** Like `useArtworkPalette`, and says whether the colours are really the picture's (`ready`) or still a stand-in. */
+export function useArtworkPaletteState(item: { id: string; logoUrl: string | null } | null): { palette: string[]; ready: boolean } {
   const { colors, isDark } = useTheme();
   const logoUrl = item?.logoUrl ?? null;
   const [fromLogo, setFromLogo] = useState<string[] | null>(() => (logoUrl ? (getCachedPalette(logoUrl) ?? null) : null));
@@ -32,6 +37,6 @@ export function useArtworkPalette(item: { id: string; logoUrl: string | null } |
     };
   }, [logoUrl]);
 
-  if (item && !logoUrl) return [generatedTint(item.id, colors, isDark)];
-  return fromLogo ?? [colors.accent];
+  if (item && !logoUrl) return { palette: [generatedTint(item.id, colors, isDark)], ready: true };
+  return { palette: fromLogo ?? [colors.accent], ready: fromLogo !== null };
 }

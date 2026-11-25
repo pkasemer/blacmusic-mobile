@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { blacApi } from './index';
+import type { Album } from '@/domain/types';
 import { FALLBACK_GENRES } from '@/domain/genres';
 import { studioApi } from './studio';
 
@@ -59,7 +60,12 @@ export const useStudioItems = (artistId: string | undefined) =>
     queryFn: () => blacApi.getStudioItems(artistId as string),
     enabled: !!artistId,
     // A scheduled release turns Live on the server by itself; check back so the list catches up.
-    refetchInterval: (query) => (query.state.data?.some((i) => i.visibility === 'scheduled') ? 30_000 : false),
+    refetchInterval: (query) => {
+      const list = query.state.data;
+      // Files going up or being converted change quickly: look every few seconds until they are done.
+      if (list?.some((i) => i.status === 'uploading' || i.status === 'processing')) return 4_000;
+      return list?.some((i) => i.visibility === 'scheduled') ? 30_000 : false;
+    },
   });
 
 /** One of the artist's releases with its tracks and files still being processed. Refreshes while work is going on. */
@@ -119,6 +125,19 @@ export const useArtist = (id: string) =>
 export const useArtistAlbums = (id: string) =>
   useQuery({ queryKey: musicKeys.artistAlbums(id), queryFn: () => blacApi.getArtistAlbums(id), enabled: !!id, staleTime: FIVE_MINUTES });
 
+/** Artists like this one. */
+export const useRelatedArtists = (id: string) =>
+  useQuery({ queryKey: ['music', 'related-artists', id] as const, queryFn: () => blacApi.getRelatedArtists(id), enabled: !!id, staleTime: FIVE_MINUTES });
+
+/** Releases like this one. */
+export const useRelatedAlbums = (album: Album | undefined) =>
+  useQuery({
+    queryKey: ['music', 'related-albums', album?.id] as const,
+    queryFn: () => blacApi.getRelatedAlbums(album as Album),
+    enabled: !!album,
+    staleTime: FIVE_MINUTES,
+  });
+
 /** The artist's most popular tracks. */
 export const useArtistTracks = (id: string) =>
   useQuery({ queryKey: musicKeys.artistTracks(id), queryFn: () => blacApi.getArtistPopularTracks(id), enabled: !!id, staleTime: FIVE_MINUTES });
@@ -148,6 +167,24 @@ export const useSearchPlaylists = (query: string) =>
   useQuery({
     queryKey: ['music', 'search-playlists', query] as const,
     queryFn: () => blacApi.searchPlaylists(query),
+    enabled: query.length > 0,
+    staleTime: 60_000,
+  });
+
+/** Artists that match a search. */
+export const useSearchArtists = (query: string) =>
+  useQuery({
+    queryKey: ['music', 'search-artists', query] as const,
+    queryFn: () => blacApi.searchArtists(query),
+    enabled: query.length > 0,
+    staleTime: 60_000,
+  });
+
+/** Albums, EPs and singles that match a search. */
+export const useSearchAlbums = (query: string) =>
+  useQuery({
+    queryKey: ['music', 'search-albums', query] as const,
+    queryFn: () => blacApi.searchAlbums(query),
     enabled: query.length > 0,
     staleTime: 60_000,
   });

@@ -2,13 +2,12 @@ import { useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Pressable, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Globe, Lock, Plus, Trash2, X } from 'lucide-react-native';
+import { ArrowDownToLine, Globe, Heart, ListMusic, Lock, Plus, Trash2, X } from 'lucide-react-native';
 import { useMyPlaylists, usePlayables } from '@/api/blac/queries';
 import { playQueue } from '@/audio/music/musicEngine';
 import { formatBytes } from '@/cache/imageCache';
-import { Chip } from '@/components/Chip';
+import { GradientCard } from '@/components/GradientCard';
 import { PlayAllBar } from '@/components/PlayAllBar';
-import { ScreenHero } from '@/components/ScreenHero';
 import { PlaylistCover } from '@/components/PlaylistCover';
 import { PlaylistFormSheet } from '@/components/PlaylistSheets';
 import { ScreenState } from '@/components/ScreenState';
@@ -129,23 +128,42 @@ export default function LibraryScreen() {
     ]);
   };
 
+  const playlistCount = myPlaylists.data?.length ?? 0;
+  const pick = (next: Segment) => {
+    haptics.select();
+    setSegment(next);
+  };
+
   const header = (
     <View style={{ gap: 16, paddingBottom: 12 }}>
-      <ScreenHero
-        label="Yours"
-        title="Library"
-        subtitle={[
-          `${favouriteIds.length} ${favouriteIds.length === 1 ? 'favourite' : 'favourites'}`,
-          `${myPlaylists.data?.length ?? 0} ${(myPlaylists.data?.length ?? 0) === 1 ? 'playlist' : 'playlists'}`,
-          `${doneEntries.length} saved`,
-        ].join(' · ')}
-      >
-        <View style={{ flexDirection: 'row', gap: 8, paddingHorizontal: 20 }}>
-          <Chip label="Favourites" selected={segment === 'favourites'} onPress={() => setSegment('favourites')} />
-          <Chip label="Playlists" selected={segment === 'playlists'} onPress={() => setSegment('playlists')} />
-          <Chip label="Downloads" selected={segment === 'downloads'} onPress={() => setSegment('downloads')} />
-        </View>
-      </ScreenHero>
+      <View style={{ paddingHorizontal: 20 }}>
+        <Text variant="display" accessibilityRole="header">
+          Library
+        </Text>
+      </View>
+      <View style={{ flexDirection: 'row', gap: 10, paddingHorizontal: 16 }}>
+        <GradientCard
+          Icon={Heart}
+          title="Likes"
+          subtitle={`${favouriteIds.length} ${favouriteIds.length === 1 ? 'song' : 'songs'}`}
+          selected={segment === 'favourites'}
+          onPress={() => pick('favourites')}
+        />
+        <GradientCard
+          Icon={ListMusic}
+          title="Playlists"
+          subtitle={`${playlistCount} ${playlistCount === 1 ? 'playlist' : 'playlists'}`}
+          selected={segment === 'playlists'}
+          onPress={() => pick('playlists')}
+        />
+        <GradientCard
+          Icon={ArrowDownToLine}
+          title="Downloads"
+          subtitle={`${doneEntries.length} saved`}
+          selected={segment === 'downloads'}
+          onPress={() => pick('downloads')}
+        />
+      </View>
       {segment === 'downloads' && downloadEntries.length > 0 ? (
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20 }}>
           <Text variant="caption" color="textSecondary">
@@ -237,7 +255,7 @@ export default function LibraryScreen() {
           ListHeaderComponent={header}
           ListEmptyComponent={
             favourites.isPending && favouriteIds.length > 0 ? undefined : (
-              <ScreenState kind="empty" title="No favourites yet" message="Tap the heart on a song or episode to keep it here." />
+              <ScreenState kind="empty" title="No likes yet" message="Tap the heart on a song or episode to keep it here." />
             )
           }
           contentInsetAdjustmentBehavior="automatic"

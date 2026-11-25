@@ -3,9 +3,9 @@ import { ActivityIndicator, Alert, Pressable, View } from 'react-native';
 import Animated from 'react-native-reanimated';
 import { useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { BadgeCheck } from 'lucide-react-native';
+import { VerifiedBadge } from '@/components/VerifiedBadge';
 import { blacApi } from '@/api/blac';
-import { musicKeys, useArtist, useArtistAlbums, useArtistTracks } from '@/api/blac/queries';
+import { musicKeys, useArtist, useArtistAlbums, useArtistTracks, useRelatedArtists } from '@/api/blac/queries';
 import { queryClient } from '@/api/queryClient';
 import type { Artist } from '@/domain/types';
 import { useArtistStore } from '@/store/artistStore';
@@ -13,8 +13,8 @@ import { haptics } from '@/utils/haptics';
 import { playQueue } from '@/audio/music/musicEngine';
 import { Avatar } from '@/components/Avatar';
 import { Card } from '@/components/Card';
-import { DetailHero, useHeroScroll } from '@/components/DetailHero';
-import { AlbumShelf } from '@/components/MusicShelf';
+import { DetailHero, HeroCover, HeroMeta, useHeroCoverSize, useHeroScroll } from '@/components/DetailHero';
+import { AlbumShelf, ArtistShelf } from '@/components/MusicShelf';
 import { PlayAllBar } from '@/components/PlayAllBar';
 import { ScreenState } from '@/components/ScreenState';
 import { Text } from '@/components/Text';
@@ -53,8 +53,8 @@ function FollowButton({ artist }: { artist: Artist }) {
       accessibilityState={{ selected: following }}
       accessibilityLabel={following ? `Following ${artist.name}. Tap to unfollow` : `Follow ${artist.name}`}
       style={({ pressed }) => ({
-        paddingHorizontal: 22,
-        paddingVertical: 9,
+        paddingHorizontal: 26,
+        paddingVertical: 10,
         borderRadius: radius.pill,
         borderWidth: 1.5,
         borderColor: following ? colors.borderStrong : colors.text,
@@ -75,6 +75,8 @@ export default function ArtistScreen() {
   const artist = useArtist(id);
   const popular = useArtistTracks(id);
   const albums = useArtistAlbums(id);
+  const related = useRelatedArtists(id);
+  const cover = useHeroCoverSize(260);
   const [showAll, setShowAll] = useState(false);
   const ownArtistId = useArtistStore((s) => s.profile?.id);
 
@@ -113,24 +115,26 @@ export default function ArtistScreen() {
         onScroll={onScroll}
         scrollEventThrottle={16}
         style={{ backgroundColor: colors.bg }}
-        contentInsetAdjustmentBehavior="never"
-        contentContainerStyle={{ paddingBottom: insets.bottom + 40, gap: 28 }}
+        contentInsetAdjustmentBehavior="automatic"
+        contentContainerStyle={{ paddingBottom: insets.bottom + 40, gap: 24 }}
         showsVerticalScrollIndicator={false}
       >
         <DetailHero scrollY={scrollY} artwork={{ id: data.id, logoUrl: data.avatarUrl }}>
-          <Avatar url={data.avatarUrl} name={data.name} size={156} />
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, maxWidth: '100%' }}>
-            <Text variant="display" numberOfLines={2} style={{ textAlign: 'center', flexShrink: 1 }}>
+          <HeroCover size={cover} round>
+            <Avatar url={data.avatarLargeUrl ?? data.avatarUrl} name={data.name} size={cover} />
+          </HeroCover>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, maxWidth: '100%', marginTop: 6 }}>
+            <Text variant="display" numberOfLines={2} style={{ fontSize: 30, lineHeight: 36, textAlign: 'center', flexShrink: 1 }}>
               {data.name}
             </Text>
-            {data.verification === 'verified' ? <BadgeCheck size={22} color={colors.accent} /> : null}
+            {data.verification === 'verified' ? <VerifiedBadge size={24} /> : null}
           </View>
-          {stats.length > 0 ? (
-            <Text variant="caption" color="textSecondary">
-              {stats.join(' · ')}
-            </Text>
+          {stats.length > 0 ? <HeroMeta>{stats.join(' · ')}</HeroMeta> : null}
+          {data.id !== ownArtistId ? (
+            <View style={{ paddingTop: 6 }}>
+              <FollowButton artist={data} />
+            </View>
           ) : null}
-          {data.id !== ownArtistId ? <FollowButton artist={data} /> : null}
         </DetailHero>
 
         <PlayAllBar items={tracks} source={{ type: 'artist', id: data.id, name: data.name }} />
@@ -157,7 +161,9 @@ export default function ArtistScreen() {
           <ActivityIndicator color={colors.accent} />
         ) : null}
 
-        <AlbumShelf title="Albums and singles" albums={albums.data} />
+        <AlbumShelf title="Releases" albums={albums.data} />
+
+        <ArtistShelf title="Related artists" artists={related.data} />
 
         {data.bio ? (
           <View style={{ gap: 12, paddingHorizontal: 20 }}>

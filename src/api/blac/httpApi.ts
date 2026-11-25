@@ -32,10 +32,13 @@ interface WireTrack {
   title: string;
   artistId?: string;
   artistName: string;
+  artistVerified?: boolean;
+  hasLyrics?: boolean;
   albumId?: string | null;
   albumTitle?: string | null;
   durationMs?: number;
   artworkUrl?: string | null;
+  artworkLargeUrl?: string | null;
   explicit?: boolean;
   genre?: string;
   downloadable?: boolean;
@@ -50,6 +53,7 @@ interface WireArtist {
   name: string;
   bio?: string;
   imageUrl?: string | null;
+  imageLargeUrl?: string | null;
   verified?: boolean;
   verification?: VerificationStatus;
   followerCount?: number;
@@ -67,15 +71,18 @@ interface WireUploadSummary {
 interface WireRelease {
   id: string;
   type: string;
+  /** What it is called to listeners: single, ep or album (an album of up to 6 tracks is an EP). */
+  kind?: string;
   title: string;
   artworkUrl?: string | null;
+  artworkLargeUrl?: string | null;
   visibility: 'draft' | 'scheduled' | 'public';
   publishAt?: string;
   releaseDate?: string;
   publishedAt?: string;
   genre?: string;
   description?: string;
-  artist?: { id: string; name: string; verified?: boolean; imageUrl?: string | null };
+  artist?: { id: string; name: string; verified?: boolean; imageUrl?: string | null; imageLargeUrl?: string | null };
   trackCount?: number;
   tracks?: unknown[];
   uploads?: WireUploadSummary[];
@@ -108,9 +115,12 @@ const toTrack = (t: WireTrack): Track => ({
   title: t.title,
   artistId: t.artistId ?? '',
   artistName: t.artistName,
+  artistVerified: t.artistVerified,
+  hasLyrics: t.hasLyrics,
   releaseId: t.albumId ?? null,
   albumTitle: t.albumTitle ?? null,
   artworkUrl: reachable(t.artworkUrl),
+  artworkLargeUrl: reachable(t.artworkLargeUrl),
   durationSec: Math.round((t.durationMs ?? 0) / 1000),
   streamUrl: null,
   explicit: t.explicit ?? false,
@@ -126,6 +136,7 @@ const toArtist = (a: WireArtist): Artist => ({
   name: a.name,
   bio: a.bio,
   avatarUrl: reachable(a.imageUrl),
+  avatarLargeUrl: reachable(a.imageLargeUrl),
   verification: a.verification ?? (a.verified ? 'verified' : 'unverified'),
   followerCount: a.followerCount,
   releaseCount: a.releaseCount,
@@ -185,6 +196,7 @@ interface WirePlaylist {
   isFeatured?: boolean;
   trackCount?: number;
   artworkUrl?: string | null;
+  artworkLargeUrl?: string | null;
   artworkUrls?: string[];
 }
 
@@ -195,6 +207,7 @@ const toPlaylist = (p: WirePlaylist): Playlist => ({
   ownerName: p.owner?.displayName ?? p.owner?.name,
   ownerId: p.owner?.id ?? p.ownerId,
   artworkUrl: reachable(p.artworkUrl),
+  artworkLargeUrl: reachable(p.artworkLargeUrl),
   artworkUrls: (p.artworkUrls ?? []).flatMap((u) => {
     const url = reachable(u);
     return url ? [url] : [];
@@ -221,13 +234,20 @@ const toPlaylistGroup = (g: WirePlaylistGroup): PlaylistGroup => ({
   playlists: (g.playlists ?? []).map(toPlaylist),
 });
 
+const releaseKind = (r: WireRelease): ReleaseType => {
+  const kind = r.kind ?? r.type;
+  return (kind === 'album' || kind === 'single' || kind === 'ep' ? kind : 'single') as ReleaseType;
+};
+
 const toAlbum = (r: WireRelease, fallbackArtist?: { id: string; name: string }): Album => ({
   id: r.id,
-  type: (r.type === 'album' || r.type === 'single' || r.type === 'ep' ? r.type : 'single') as ReleaseType,
+  type: releaseKind(r),
   title: r.title,
   artworkUrl: reachable(r.artworkUrl),
+  artworkLargeUrl: reachable(r.artworkLargeUrl),
   artistId: r.artist?.id ?? fallbackArtist?.id ?? '',
   artistName: r.artist?.name ?? fallbackArtist?.name ?? '',
+  artistVerified: r.artist?.verified,
   releaseDate: r.releaseDate ?? r.publishedAt,
   trackCount: r.trackCount ?? r.tracks?.length ?? 0,
   genre: r.genre,
@@ -243,6 +263,8 @@ async function settled<T>(promises: Promise<T>[]): Promise<T[]> {
 }
 
 const isNotFound = (e: unknown) => e instanceof ApiError && e.status === 404;
+/** A server older than this app answers 404 or 405 for a call it does not have yet. */
+const isMissing = (e: unknown) => e instanceof ApiError && (e.status === 404 || e.status === 405);
 
 const PAGE = 24;
 
@@ -284,10 +306,10 @@ export const httpApi: BlacApi = {
       query: { limit: 20 },
     });
     const full = await settled(
-      releases.releases.map((r) => apiRequest<{ tracks: WireTrack[]; artist?: { id: string; name: string } }>(`/v1/releases/${r.id}`)),
+      releases.releases.map((r) => apiRequest<{ tracks: WireTrack[]; artist?: { id: string; name: string; verified?: boolean } }>(`/v1/releases/${r.id}`)),
     );
     return full.flatMap((r) =>
-      r.tracks.map((t) => toTrack({ ...t, artistId, artistName: t.artistName ?? r.artist?.name ?? '' })),
+      r.tracks.map((t) => toTrack({ ...t, artistId, artistName: t.artistName ?? r.artist?.name ?? '', artistVerified: t.artistVerified ?? r.artist?.verified })),
     );
   },
 
@@ -338,6 +360,31 @@ export const httpApi: BlacApi = {
     }
   },
 
+  getRelatedArtists: async (artistId) => {
+    try {
+      const data = await apiRequest<{ artists: WireArtist[] }>(`/v1/artists/${encodeURIComponent(artistId)}/related`, { query: { limit: 12 } });
+      return data.artists.map(toArtist);
+    } catch (error) {
+      if (!isMissing(error)) throw error;
+      // The server has no "related" yet: other featured artists.
+      return (await httpApi.getFeaturedArtists()).filter((a) => a.id !== artistId).slice(0, 12);
+    }
+  },
+
+  getRelatedAlbums: async (album) => {
+    try {
+      const data = await apiRequest<{ releases: WireRelease[] }>(`/v1/releases/${encodeURIComponent(album.id)}/related`, { query: { limit: 12 } });
+      return data.releases.map((r) => toAlbum(r));
+    } catch (error) {
+      if (!isMissing(error)) throw error;
+      // The server has no "related" yet: releases found through songs of the same genre, then the newest ones.
+      const sameGenre = album.genre ? albumsFromTracks(await httpApi.getTracksByGenre(album.genre).catch(() => [])) : [];
+      const newest = await httpApi.getNewReleaseAlbums().catch(() => []);
+      const seen = new Set<string>([album.id]);
+      return [...sameGenre, ...newest].filter((a) => (seen.has(a.id) ? false : (seen.add(a.id), true))).slice(0, 12);
+    }
+  },
+
   getArtistAlbums: async (artistId) => {
     const data = await apiRequest<{ releases: WireRelease[] }>(`/v1/artists/${encodeURIComponent(artistId)}/releases`, {
       query: { limit: 50 },
@@ -367,6 +414,7 @@ export const httpApi: BlacApi = {
           ...t,
           artistId: t.artistId ?? album.artistId,
           artistName: t.artistName ?? album.artistName,
+          artistVerified: t.artistVerified ?? album.artistVerified,
           albumId: id,
           albumTitle: album.title,
           artworkUrl: t.artworkUrl ?? r.artworkUrl,
@@ -490,6 +538,32 @@ export const httpApi: BlacApi = {
     } catch (error) {
       if (isNotFound(error)) return []; // the backend does not search playlists yet
       throw error;
+    }
+  },
+
+  searchArtists: async (query) => {
+    const q = query.trim();
+    if (!q) return [];
+    try {
+      const data = await apiRequest<{ artists: WireArtist[] }>('/v1/search/artists', { query: { q, limit: 12 } });
+      return data.artists.map(toArtist);
+    } catch (error) {
+      if (!isMissing(error)) throw error;
+      // The server cannot search artists yet: use the artists behind the matching songs.
+      return artistsFromTracks(await httpApi.searchTracks(q));
+    }
+  },
+
+  searchAlbums: async (query) => {
+    const q = query.trim();
+    if (!q) return [];
+    try {
+      const data = await apiRequest<{ releases: WireRelease[] }>('/v1/search/albums', { query: { q, type: 'all', limit: 20 } });
+      return data.releases.map((r) => toAlbum(r));
+    } catch (error) {
+      if (!isMissing(error)) throw error;
+      // The server cannot search releases yet: use the releases behind the matching songs.
+      return albumsFromTracks(await httpApi.searchTracks(q));
     }
   },
 

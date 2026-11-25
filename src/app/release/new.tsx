@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { Alert, Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, Switch, View } from 'react-native';
+import { Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { File } from 'expo-file-system';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Check, ImagePlus, Music, X } from 'lucide-react-native';
+import { Check, ImagePlus, Music } from 'lucide-react-native';
 import { ApiError, USES_BACKEND } from '@/api/blac';
 import { studioApi } from '@/api/blac/studio';
 import { queryClient } from '@/api/queryClient';
@@ -15,19 +15,10 @@ import { Text } from '@/components/Text';
 import { useScheduleStore } from '@/store/scheduleStore';
 import { radius, useTheme } from '@/theme';
 import { haptics } from '@/utils/haptics';
-import { readable, sizeOf } from '@/uploads/fileSize';
+import { PickedTrackCard } from '@/components/PickedTrackCard';
+import { pickAudioFiles, type PickedTrack } from '@/uploads/pickAudio';
 import { chooseCover } from '@/uploads/pickCover';
 import { uploadTracks } from '@/uploads/uploadManager';
-
-interface PickedTrack {
-  key: string;
-  file: File;
-  title: string;
-  explicit: boolean;
-}
-
-const titleFromFilename = (name: string) =>
-  name.replace(/\.[a-z0-9]{2,5}$/i, '').replace(/[_-]+/g, ' ').trim() || 'Untitled';
 
 /** Create a release (single or album): cover, details and audio files. Files upload in the background. */
 export default function NewReleaseScreen() {
@@ -49,33 +40,8 @@ export default function NewReleaseScreen() {
   const canSubmit = USES_BACKEND && title.trim().length > 0 && tracks.length > 0 && rights && !busy;
 
   const pickAudio = async () => {
-    let files: File[];
-    if (type === 'album') {
-      const picked = await File.pickFileAsync({ mimeTypes: ['audio/*'], multipleFiles: true });
-      if (picked.canceled) return;
-      files = picked.result;
-    } else {
-      const picked = await File.pickFileAsync({ mimeTypes: ['audio/*'] });
-      if (picked.canceled) return;
-      files = [picked.result];
-    }
-    // Make sure every file can be read (and so has a size) before it goes in the list.
-    const checked = await Promise.all(files.map(readable));
-    const unreadable = checked.filter((f) => f === null).length;
-    if (unreadable > 0) {
-      Alert.alert(
-        unreadable === 1 ? "Can't read that file" : "Can't read some files",
-        'Download it to your phone first (for example from iCloud), then choose it again.',
-      );
-    }
-    files = checked.filter((f): f is File => f !== null);
-    if (files.length === 0) return;
-    const next = files.map((file, i) => ({
-      key: `${Date.now()}-${i}-${file.name}`,
-      file,
-      title: titleFromFilename(file.name),
-      explicit: false,
-    }));
+    const next = await pickAudioFiles(type === 'album');
+    if (next.length === 0) return;
     setTracks((current) => (type === 'single' ? next.slice(0, 1) : [...current, ...next]));
     if (!title.trim() && next[0]) setTitle(next[0].title);
   };
@@ -186,54 +152,13 @@ export default function NewReleaseScreen() {
             {type === 'single' ? 'Audio file' : 'Tracks'}
           </Text>
           {tracks.map((t, i) => (
-            <View
+            <PickedTrackCard
               key={t.key}
-              style={{
-                gap: 8,
-                padding: 12,
-                borderRadius: radius.card,
-                backgroundColor: colors.surface,
-                borderWidth: 1,
-                borderColor: colors.border,
-              }}
-            >
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                <Text variant="caption" color="textTertiary" style={{ width: 18 }}>
-                  {type === 'album' ? i + 1 : ''}
-                </Text>
-                <View style={{ flex: 1 }}>
-                  <FormField
-                    label="Track title"
-                    value={t.title}
-                    onChangeText={(text) => setTracks((all) => all.map((x) => (x.key === t.key ? { ...x, title: text } : x)))}
-                    maxLength={200}
-                  />
-                </View>
-                <Pressable
-                  onPress={() => setTracks((all) => all.filter((x) => x.key !== t.key))}
-                  hitSlop={10}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Remove ${t.title}`}
-                >
-                  <X size={20} color={colors.textSecondary} />
-                </Pressable>
-              </View>
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                <Text variant="caption" color="textSecondary" numberOfLines={1} style={{ flex: 1 }}>
-                  {t.file.name} · {(sizeOf(t.file) / 1024 / 1024).toFixed(1)} MB
-                </Text>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                  <Text variant="caption" color="textSecondary">
-                    Explicit
-                  </Text>
-                  <Switch
-                    value={t.explicit}
-                    onValueChange={(v) => setTracks((all) => all.map((x) => (x.key === t.key ? { ...x, explicit: v } : x)))}
-                    trackColor={{ false: colors.borderStrong, true: colors.accent }}
-                  />
-                </View>
-              </View>
-            </View>
+              track={t}
+              number={type === 'album' ? i + 1 : undefined}
+              onChange={(patch) => setTracks((all) => all.map((x) => (x.key === t.key ? { ...x, ...patch } : x)))}
+              onRemove={() => setTracks((all) => all.filter((x) => x.key !== t.key))}
+            />
           ))}
           {type === 'album' || tracks.length === 0 ? (
             <Pressable

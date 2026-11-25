@@ -59,13 +59,13 @@ export default function HomeScreen() {
     return (playlists.data ?? []).filter((p) => !mineIds.has(p.id));
   }, [playlists.data, yourPlaylists]);
 
-  // Quick-access tiles: favourites, then your playlists, then what you played last. A newcomer with none of that
+  // Quick-access tiles: likes, then your playlists, then what you played last. A newcomer with none of that
   // gets the featured playlists and albums instead, so the top of Home is never empty.
   const tiles = useMemo<HomeTile[]>(() => {
     const list: HomeTile[] = [
       {
         key: 'favourites',
-        title: 'Favourites',
+        title: 'Likes',
         art: (
           <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary }}>
             <Heart size={22} color={colors.onPrimary} fill={colors.onPrimary} />
@@ -170,10 +170,10 @@ export default function HomeScreen() {
           <ScreenState kind="empty" title="Nothing here yet" message="New songs and podcasts will show up here." />
         ) : (
           <>
-            {/* Yours first: what you played, your playlists, your favourites */}
+            {/* Yours first: what you played, your playlists, your likes */}
             <MusicShelf title="Recently played" tracks={recentTracks} source={{ type: 'recent' }} />
             <PlaylistShelf title="Your playlists" playlists={yourPlaylists} />
-            <MusicShelf title="Your favourites" tracks={favouriteTracks} source={{ type: 'favourites' }} />
+            <MusicShelf title="Your likes" tracks={favouriteTracks} source={{ type: 'favourites' }} />
 
             {/* Then what we recommend */}
             {hasYours ? (

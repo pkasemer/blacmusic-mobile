@@ -49,8 +49,8 @@ const SLIDES: Slide[] = [
     tint: '#FF7AB8',
     accents: ['#BB88FF', '#FFB65C'],
     title: 'Make it yours',
-    text: 'Save favourites, build playlists and pick up right where you stopped. Keep them private or share them.',
-    chips: ['Favourites', 'Your playlists', 'Recently played'],
+    text: 'Like songs, build playlists and pick up right where you stopped. Keep them private or share them.',
+    chips: ['Likes', 'Your playlists', 'Recently played'],
   },
   {
     key: 'anywhere',

@@ -1,69 +1,105 @@
 import { useCallback, useMemo, useRef, useState, type ComponentRef } from 'react';
 import { FlatList, Pressable, TextInput, View } from 'react-native';
+import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Search, X } from 'lucide-react-native';
-import { useGenres, useGenreTracks, useSearchPlaylists, useTrackSearch, useTrending } from '@/api/blac/queries';
+import { useNewReleaseAlbums, useSearchAlbums, useSearchArtists, useSearchPlaylists, useTrackSearch, useTrending } from '@/api/blac/queries';
 import { playQueue } from '@/audio/music/musicEngine';
-import { PlaylistShelf } from '@/components/MusicShelf';
-import { ScreenHero } from '@/components/ScreenHero';
+import type { PlaybackSource } from '@/audio/music/source';
+import { ArtistName } from '@/components/ArtistName';
+import { Artwork } from '@/components/Artwork';
+import { Avatar } from '@/components/Avatar';
+import { AlbumShelf } from '@/components/MusicShelf';
+import { PlaylistCover } from '@/components/PlaylistCover';
 import { ScreenState } from '@/components/ScreenState';
+import { SearchResultRow } from '@/components/SearchResultRow';
 import { TrackRowsSkeleton } from '@/components/Skeleton';
 import { TabScreen } from '@/components/TabScreen';
 import { Text } from '@/components/Text';
 import { useTrackMenu } from '@/components/TrackActionSheet';
 import { TrackRow } from '@/components/TrackRow';
+import type { Album, Artist, Playlist, Track } from '@/domain/types';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { refreshMusic, usePullToRefresh } from '@/hooks/usePullToRefresh';
+import { useRecentSearchStore, type RecentKind, type RecentOpen } from '@/store/recentSearchStore';
 import { radius, useTheme } from '@/theme';
 import { fontStyle } from '@/theme/fonts';
 import { haptics } from '@/utils/haptics';
 import { topInset } from '@/utils/platform';
 
-/** Tile colours for the genre grid. A genre always gets the same one (picked from its name). */
-const TILE_COLOURS = ['#8D67AB', '#1E3264', '#BA5D07', '#E8115B', '#148A08', '#0D73EC', '#E13300', '#477D95', '#DC148C', '#27856A', '#503750', '#7358FF'];
+/** What one line of the results (or the trending list) is. */
+type Entry =
+  | { kind: 'artist'; artist: Artist }
+  | { kind: 'album'; album: Album }
+  | { kind: 'playlist'; playlist: Playlist }
+  | { kind: 'track'; track: Track; index: number };
 
-function colourFor(name: string): string {
-  let h = 0;
-  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) | 0;
-  return TILE_COLOURS[Math.abs(h) % TILE_COLOURS.length];
+const keyOf = (e: Entry) => (e.kind === 'artist' ? `a:${e.artist.id}` : e.kind === 'album' ? `r:${e.album.id}` : e.kind === 'playlist' ? `p:${e.playlist.id}` : `t:${e.track.id}`);
+
+const tagOfAlbum = (type: Album['type']) => (type === 'single' ? 'Single' : type === 'ep' ? 'EP' : 'Album');
+
+const playlistLine = (p: Playlist) => (p.ownerName ? `By ${p.ownerName}` : `${p.trackCount} ${p.trackCount === 1 ? 'song' : 'songs'}`);
+
+/** The page that opens for something found in search. */
+function useOpen() {
+  const router = useRouter();
+  const record = useRecentSearchStore((s) => s.record);
+  return useCallback(
+    (kind: RecentKind, id: string, remember?: Parameters<typeof record>[0]) => {
+      if (remember) record(remember);
+      haptics.select();
+      if (kind === 'artist') router.push({ pathname: '/artist/[id]', params: { id } });
+      else if (kind === 'album') router.push({ pathname: '/album/[id]', params: { id } });
+      else if (kind === 'playlist') router.push({ pathname: '/playlist/[id]', params: { id } });
+      else router.push({ pathname: '/track/[id]', params: { id } });
+    },
+    [router, record],
+  );
 }
 
-function GenreTile({ name, onPress }: { name: string; onPress: () => void }) {
+/** Things opened from search before, so they are one tap away. */
+function RecentSection({ onOpen }: { onOpen: (kind: RecentKind, id: string) => void }) {
+  const items = useRecentSearchStore((s) => s.items);
+  const remove = useRecentSearchStore((s) => s.remove);
+  const clear = useRecentSearchStore((s) => s.clear);
+  const shown = items.slice(0, 8);
+  if (shown.length === 0) return null;
+
+  const leadingFor = (item: RecentOpen) =>
+    item.kind === 'artist' ? <Avatar url={item.imageUrl} name={item.title} size={52} /> : <Artwork id={item.id} logoUrl={item.imageUrl} size={52} />;
+
   return (
-    <Pressable
-      onPress={() => {
-        haptics.select();
-        onPress();
-      }}
-      accessibilityRole="button"
-      accessibilityLabel={`Browse ${name}`}
-      style={({ pressed }) => ({
-        width: '48.5%',
-        height: 88,
-        borderRadius: radius.card,
-        overflow: 'hidden',
-        padding: 12,
-        backgroundColor: colourFor(name),
-        opacity: pressed ? 0.85 : 1,
-      })}
-    >
-      <Text variant="headline" numberOfLines={2} style={{ color: '#FFFFFF', fontSize: 17, lineHeight: 21, maxWidth: '75%' }}>
-        {name}
-      </Text>
-      {/* A tilted square in the corner, like the cover on a Spotify category tile */}
-      <View
-        style={{
-          position: 'absolute',
-          right: -10,
-          bottom: -6,
-          width: 54,
-          height: 54,
-          borderRadius: 8,
-          backgroundColor: 'rgba(255,255,255,0.22)',
-          transform: [{ rotate: '24deg' }],
-        }}
-      />
-    </Pressable>
+    <View style={{ gap: 4 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', paddingHorizontal: 20, paddingBottom: 6 }}>
+        <Text variant="title" accessibilityRole="header">
+          Recent
+        </Text>
+        <Pressable onPress={() => { haptics.select(); clear(); }} hitSlop={10} accessibilityRole="button" accessibilityLabel="Clear recent searches">
+          <Text variant="bodyStrong" color="accent">
+            Clear
+          </Text>
+        </Pressable>
+      </View>
+      {shown.map((item, i) => (
+        <SearchResultRow
+          key={item.key}
+          leading={leadingFor(item)}
+          title={item.title}
+          verified={item.verified}
+          tag={item.tag}
+          subtitle={
+            item.subtitle ? (
+              <Text variant="caption" color="textSecondary" numberOfLines={1} style={{ flexShrink: 1 }}>
+                {item.subtitle}
+              </Text>
+            ) : undefined
+          }
+          onPress={() => onOpen(item.kind, item.id)}
+          onRemove={() => remove(item.key)}
+          separator={i < shown.length - 1}
+        />
+      ))}
+    </View>
   );
 }
 
@@ -72,29 +108,48 @@ export default function SearchScreen() {
   const insets = useSafeAreaInsets();
   const refreshControl = usePullToRefresh(refreshMusic);
   const menu = useTrackMenu();
+  const open = useOpen();
   const inputRef = useRef<ComponentRef<typeof TextInput>>(null);
   const [query, setQuery] = useState('');
-  const [genre, setGenre] = useState<string | null>(null);
   const debouncedQuery = useDebouncedValue(query.trim(), 300);
-
   const searching = debouncedQuery.length > 0;
-  const results = useTrackSearch(debouncedQuery);
-  // Public playlists that match: the Blac team's picks first, then other people's public playlists.
-  const playlistResults = useSearchPlaylists(debouncedQuery);
-  const genres = useGenres();
-  const genreTracks = useGenreTracks(searching ? null : genre);
-  // With nothing typed and no genre chosen, offer what is popular instead of an empty page.
+
+  const songs = useTrackSearch(debouncedQuery);
+  const artists = useSearchArtists(debouncedQuery);
+  const albums = useSearchAlbums(debouncedQuery);
+  const playlists = useSearchPlaylists(debouncedQuery);
+  // With nothing typed: what is new and what is popular, instead of an empty page.
+  const latest = useNewReleaseAlbums();
   const trending = useTrending();
-  const active = searching ? results : genre ? genreTracks : trending;
-  const tracks = useMemo(() => active.data ?? [], [active.data]);
 
   const dismissKeyboard = useCallback(() => inputRef.current?.blur(), []);
 
-  const browsing = !searching && !genre;
+  const trackList = useMemo(() => (searching ? (songs.data ?? []) : (trending.data ?? [])), [searching, songs.data, trending.data]);
+  const source: PlaybackSource = searching ? { type: 'search', query: debouncedQuery } : { type: 'trending' };
+
+  const entries = useMemo<Entry[]>(() => {
+    const tracks = trackList.map((track, index) => ({ kind: 'track' as const, track, index }));
+    if (!searching) return tracks;
+    return [
+      ...(artists.data ?? []).slice(0, 3).map((artist) => ({ kind: 'artist' as const, artist })),
+      ...(albums.data ?? []).slice(0, 5).map((album) => ({ kind: 'album' as const, album })),
+      ...(playlists.data ?? []).slice(0, 4).map((playlist) => ({ kind: 'playlist' as const, playlist })),
+      ...tracks,
+    ];
+  }, [searching, trackList, artists.data, albums.data, playlists.data]);
+
+  const loading = searching ? songs.isPending && artists.isPending && albums.isPending && playlists.isPending : trending.isPending;
+  const failed = searching ? songs.isError && artists.isError && albums.isError && playlists.isError : trending.isError;
+  const firstError = searching ? songs : trending;
 
   const header = (
     <View style={{ gap: 18 }}>
-      <ScreenHero label="Discover" title="Search">
+      <View style={{ gap: 14 }}>
+        <View style={{ paddingHorizontal: 20 }}>
+          <Text variant="display" accessibilityRole="header">
+            Search
+          </Text>
+        </View>
         <View
           style={{
             flexDirection: 'row',
@@ -114,7 +169,7 @@ export default function SearchScreen() {
             ref={inputRef}
             value={query}
             onChangeText={setQuery}
-            placeholder="Songs, artists and playlists"
+            placeholder="Songs, artists, albums and playlists"
             placeholderTextColor={colors.textTertiary}
             autoCapitalize="none"
             autoCorrect={false}
@@ -137,92 +192,123 @@ export default function SearchScreen() {
             </Pressable>
           ) : null}
         </View>
-      </ScreenHero>
-
-      {/* Browse all: a tile for every genre, before anything is typed */}
-      {browsing && (genres.data?.length ?? 0) > 0 ? (
-        <View style={{ gap: 12 }}>
-          <Text variant="title" style={{ paddingHorizontal: 20 }}>
-            Browse all
-          </Text>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 10, paddingHorizontal: 20 }}>
-            {(genres.data ?? []).map((g) => (
-              <GenreTile key={g.id} name={g.name} onPress={() => setGenre(g.name)} />
-            ))}
-          </View>
-        </View>
-      ) : null}
-
-      {searching && (playlistResults.data?.length ?? 0) > 0 ? <PlaylistShelf title="Playlists" playlists={playlistResults.data} /> : null}
-
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 4 }}>
-        <Text variant={browsing ? 'title' : 'caption'} color={browsing ? 'text' : 'textTertiary'}>
-          {searching
-            ? active.isPending
-              ? 'Searching…'
-              : `${tracks.length} ${tracks.length === 1 ? 'song' : 'songs'}`
-            : genre
-              ? genre
-              : 'Trending now'}
-        </Text>
-        {!searching && genre ? (
-          <Pressable
-            onPress={() => {
-              haptics.select();
-              setGenre(null);
-            }}
-            hitSlop={10}
-            accessibilityRole="button"
-            accessibilityLabel="Clear genre"
-            style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
-          >
-            <Text variant="bodyStrong" color="accent">
-              All genres
-            </Text>
-            <X size={14} color={colors.accent} />
-          </Pressable>
-        ) : null}
       </View>
+
+      {!searching ? (
+        <>
+          <RecentSection onOpen={(kind, id) => open(kind, id)} />
+          <AlbumShelf title="Latest releases" albums={latest.data} />
+          <View style={{ paddingHorizontal: 20, paddingTop: 4 }}>
+            <Text variant="title" accessibilityRole="header">
+              Trending now
+            </Text>
+          </View>
+        </>
+      ) : (
+        <View style={{ paddingHorizontal: 20 }}>
+          <Text variant="caption" color="textTertiary">
+            {loading ? 'Searching…' : `${entries.length} ${entries.length === 1 ? 'result' : 'results'}`}
+          </Text>
+        </View>
+      )}
     </View>
   );
+
+  const renderEntry = ({ item, index }: { item: Entry; index: number }) => {
+    const last = index === entries.length - 1;
+    if (item.kind === 'track') {
+      const { track } = item;
+      return (
+        <TrackRow
+          item={track}
+          tag={searching ? 'Song' : undefined}
+          separator={!last}
+          onPress={() => {
+            dismissKeyboard();
+            open('track', track.id, { kind: 'track', id: track.id, title: track.title, subtitle: track.artistName, imageUrl: track.artworkUrl, verified: track.artistVerified, tag: 'Song' });
+          }}
+          onPlay={() => {
+            dismissKeyboard();
+            playQueue(trackList, item.index, { source });
+          }}
+          onMore={() => menu.open(track)}
+        />
+      );
+    }
+    if (item.kind === 'artist') {
+      const { artist } = item;
+      return (
+        <SearchResultRow
+          leading={<Avatar url={artist.avatarUrl} name={artist.name} size={52} />}
+          title={artist.name}
+          verified={artist.verification === 'verified'}
+          tag="Artist"
+          separator={!last}
+          onPress={() => {
+            dismissKeyboard();
+            open('artist', artist.id, { kind: 'artist', id: artist.id, title: artist.name, subtitle: '', imageUrl: artist.avatarUrl, verified: artist.verification === 'verified', tag: 'Artist' });
+          }}
+        />
+      );
+    }
+    if (item.kind === 'album') {
+      const { album } = item;
+      const tag = tagOfAlbum(album.type);
+      return (
+        <SearchResultRow
+          leading={<Artwork id={album.id} logoUrl={album.artworkUrl} size={52} />}
+          title={album.title}
+          tag={tag}
+          subtitle={<ArtistName name={album.artistName} verified={album.artistVerified} />}
+          separator={!last}
+          onPress={() => {
+            dismissKeyboard();
+            open('album', album.id, { kind: 'album', id: album.id, title: album.title, subtitle: album.artistName, imageUrl: album.artworkUrl, verified: album.artistVerified, tag });
+          }}
+        />
+      );
+    }
+    const { playlist } = item;
+    return (
+      <SearchResultRow
+        leading={<PlaylistCover playlist={playlist} size={52} />}
+        title={playlist.name}
+        tag="Playlist"
+        subtitle={
+          <Text variant="caption" color="textSecondary" numberOfLines={1} style={{ flexShrink: 1 }}>
+            {playlistLine(playlist)}
+          </Text>
+        }
+        separator={!last}
+        onPress={() => {
+          dismissKeyboard();
+          open('playlist', playlist.id, { kind: 'playlist', id: playlist.id, title: playlist.name, subtitle: playlistLine(playlist), imageUrl: playlist.artworkUrl ?? playlist.artworkUrls[0] ?? null, tag: 'Playlist' });
+        }}
+      />
+    );
+  };
 
   return (
     <TabScreen>
       <FlatList
-        data={active.isPending || active.isError ? [] : tracks}
-        keyExtractor={(t) => t.id}
-        renderItem={({ item, index }) => (
-          <TrackRow
-            item={item}
-            onPress={() => {
-              dismissKeyboard();
-              playQueue(tracks, index, {
-                source: searching ? { type: 'search', query: debouncedQuery } : genre ? { type: 'genre', name: genre } : { type: 'trending' },
-              });
-            }}
-            onMore={() => menu.open(item)}
-            separator={index < tracks.length - 1}
-          />
-        )}
+        data={loading || failed ? [] : entries}
+        keyExtractor={keyOf}
+        renderItem={renderEntry}
         ListHeaderComponent={header}
         ListEmptyComponent={
           <Pressable onPress={dismissKeyboard} accessibilityRole="none" style={{ flex: 1 }}>
-            {active.isPending ? (
+            {loading ? (
               <TrackRowsSkeleton count={6} />
-            ) : active.isError ? (
+            ) : failed ? (
               <ScreenState
                 kind="error"
                 title="Can't search right now"
-                message={active.error instanceof Error ? active.error.message : 'Check your connection and try again.'}
+                message={firstError.error instanceof Error ? firstError.error.message : 'Check your connection and try again.'}
                 actionLabel="Retry"
-                onAction={() => active.refetch()}
+                onAction={() => void firstError.refetch()}
               />
             ) : (
-              <ScreenState
-                kind="empty"
-                title="No songs found"
-                message={genre && !searching ? 'No songs in this genre yet.' : 'Try a different song or artist name.'}
-              />
+              <ScreenState kind="empty" title="No results" message="Try a different song, artist, album or playlist name." />
             )}
           </Pressable>
         }

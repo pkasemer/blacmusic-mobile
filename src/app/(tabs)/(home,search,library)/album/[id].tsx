@@ -2,14 +2,17 @@ import { ActivityIndicator, Pressable, View } from 'react-native';
 import Animated from 'react-native-reanimated';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useAlbum } from '@/api/blac/queries';
+import { useAlbum, useRelatedAlbums } from '@/api/blac/queries';
+import { useReleaseCredits } from '@/api/blac/credits';
+import { CreditsSection } from '@/components/CreditsSection';
+import { AlbumShelf } from '@/components/MusicShelf';
 import { playQueue } from '@/audio/music/musicEngine';
 import { Artwork } from '@/components/Artwork';
-import { Card } from '@/components/Card';
-import { DetailHero, useHeroScroll } from '@/components/DetailHero';
+import { DetailHero, HeroCover, HeroMeta, HeroTitle, useHeroCoverSize, useHeroScroll } from '@/components/DetailHero';
 import { DownloadAllButton, ShareLinkButton } from '@/components/CollectionActions';
 import { PlayAllBar } from '@/components/PlayAllBar';
 import { ScreenState } from '@/components/ScreenState';
+import { ArtistName } from '@/components/ArtistName';
 import { Text } from '@/components/Text';
 import { TrackRow } from '@/components/TrackRow';
 import { useTrackMenu } from '@/components/TrackActionSheet';
@@ -26,6 +29,9 @@ export default function AlbumScreen() {
   const menu = useTrackMenu();
   const router = useRouter();
   const query = useAlbum(id);
+  const related = useRelatedAlbums(query.data?.album);
+  const credits = useReleaseCredits(id);
+  const cover = useHeroCoverSize();
 
   if (query.isPending) {
     return (
@@ -52,10 +58,10 @@ export default function AlbumScreen() {
   const { album, tracks } = data;
   const kind = album.type === 'single' ? 'Single' : album.type === 'ep' ? 'EP' : 'Album';
   const totalSec = tracks.reduce((sum, t) => sum + t.durationSec, 0);
-  const meta = [kind, yearOf(album.releaseDate), `${tracks.length} ${tracks.length === 1 ? 'track' : 'tracks'}`, tracks.length > 0 ? formatTotalLength(totalSec) : null]
+  const released = formatDate(album.releaseDate);
+  const meta = [kind, album.genre, released ?? yearOf(album.releaseDate), `${tracks.length} ${tracks.length === 1 ? 'track' : 'tracks'}`, tracks.length > 0 ? formatTotalLength(totalSec) : null]
     .filter(Boolean)
     .join(' · ');
-  const released = formatDate(album.releaseDate);
 
   return (
     <TabScreen>
@@ -63,15 +69,15 @@ export default function AlbumScreen() {
         onScroll={onScroll}
         scrollEventThrottle={16}
         style={{ backgroundColor: colors.bg }}
-        contentInsetAdjustmentBehavior="never"
-        contentContainerStyle={{ paddingBottom: insets.bottom + 40, gap: 28 }}
+        contentInsetAdjustmentBehavior="automatic"
+        contentContainerStyle={{ paddingBottom: insets.bottom + 40, gap: 24 }}
         showsVerticalScrollIndicator={false}
       >
         <DetailHero scrollY={scrollY} artwork={{ id: album.id, logoUrl: album.artworkUrl }}>
-          <Artwork id={album.id} logoUrl={album.artworkUrl} size={224} />
-          <Text variant="title" numberOfLines={3} style={{ textAlign: 'center' }}>
-            {album.title}
-          </Text>
+          <HeroCover size={cover}>
+            <Artwork id={album.id} logoUrl={album.artworkLargeUrl ?? album.artworkUrl} size={cover} />
+          </HeroCover>
+          <HeroTitle>{album.title}</HeroTitle>
           {album.artistId ? (
             <Pressable
               onPress={() => router.push({ pathname: '/artist/[id]', params: { id: album.artistId } })}
@@ -79,14 +85,17 @@ export default function AlbumScreen() {
               accessibilityLabel={`Open artist ${album.artistName}`}
               hitSlop={8}
             >
-              <Text variant="bodyStrong">{album.artistName}</Text>
+              <ArtistName name={album.artistName} verified={album.artistVerified} variant="body" color="accent" style={{ justifyContent: 'center' }} textStyle={{ fontWeight: '600' }} />
             </Pressable>
           ) : (
-            <Text variant="bodyStrong">{album.artistName}</Text>
+            <ArtistName name={album.artistName} verified={album.artistVerified} variant="body" color="textSecondary" style={{ justifyContent: 'center' }} />
           )}
-          <Text variant="caption" color="textSecondary">
-            {meta}
-          </Text>
+          <HeroMeta>{meta}</HeroMeta>
+          {album.description ? (
+            <Text variant="caption" color="textSecondary" numberOfLines={3} style={{ textAlign: 'center', paddingHorizontal: 12 }}>
+              {album.description}
+            </Text>
+          ) : null}
         </DetailHero>
 
         <PlayAllBar
@@ -117,24 +126,9 @@ export default function AlbumScreen() {
           ))}
         </View>
 
-        {album.description || album.genre || released ? (
-          <View style={{ gap: 12, paddingHorizontal: 20 }}>
-            <Text variant="title">About</Text>
-            <Card style={{ padding: 16, gap: 8 }}>
-              {album.description ? <Text variant="body">{album.description}</Text> : null}
-              {album.genre ? (
-                <Text variant="caption" color="accent">
-                  {album.genre}
-                </Text>
-              ) : null}
-              {released ? (
-                <Text variant="caption" color="textSecondary">
-                  Released {released}
-                </Text>
-              ) : null}
-            </Card>
-          </View>
-        ) : null}
+        <CreditsSection credits={credits.data} perTrack />
+
+        <AlbumShelf title="Related albums" albums={related.data} />
       </Animated.ScrollView>
       {menu.sheet}
     </TabScreen>

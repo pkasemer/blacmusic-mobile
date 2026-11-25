@@ -8,7 +8,7 @@ import { radius, useTheme } from '@/theme';
 import { haptics } from '@/utils/haptics';
 
 /**
- * Heart button: tap to add the song or episode to your favourites, tap again to remove it.
+ * Heart button: tap to add the song or episode to your likes, tap again to remove it.
  *
  * - `box`: a bordered 52 pt square, matching the other action buttons on the details sheet.
  * - `icon`: a bare 44 pt heart for toolbars and headers, in the colour you pass.
@@ -49,7 +49,7 @@ export function FavouriteButton({
       onPress={onPress}
       hitSlop={variant === 'icon' ? 6 : 0}
       accessibilityRole="button"
-      accessibilityLabel={isFavourite ? 'Remove from favourites' : 'Add to favourites'}
+      accessibilityLabel={isFavourite ? 'Remove from likes' : 'Add to likes'}
       accessibilityState={{ selected: isFavourite }}
       style={({ pressed }) => ({
         width: size,

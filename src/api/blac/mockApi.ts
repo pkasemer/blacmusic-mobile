@@ -161,6 +161,8 @@ export const mockApi: BlacApi = {
     if (p) p.trackCount = list.length;
     return delay(undefined, 100);
   },
+  searchArtists: async (query) => artistsFromTracks(await mockApi.searchTracks(query)),
+  searchAlbums: async (query) => albumsFromTracks(await mockApi.searchTracks(query)),
   searchPlaylists: (query) => {
     const q = query.trim().toLowerCase();
     return delay(q ? PLAYLISTS.filter((p) => p.name.toLowerCase().includes(q)) : []);
@@ -178,6 +180,8 @@ export const mockApi: BlacApi = {
   },
   getSimilarTracks: (track) => delay(TRACKS.filter((t) => t.id !== track.id && (t.genre === track.genre || t.artistId === track.artistId))),
   setFollowing: () => delay(undefined, 150),
+  getRelatedArtists: (artistId) => delay(artistsFromTracks(TRACKS).filter((a) => a.id !== artistId)),
+  getRelatedAlbums: (album) => delay(albumsFromTracks(TRACKS).filter((a) => a.id !== album.id)),
   getArtistAlbums: (artistId) => delay(albumsFromTracks(TRACKS).filter((a) => a.artistId === artistId)),
   getArtistPopularTracks: (artistId) => delay(TRACKS.filter((t) => t.artistId === artistId).slice(0, 10)),
   getAlbum: (id) => {

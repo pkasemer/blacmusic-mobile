@@ -16,6 +16,7 @@ import { AnimatedSplash } from '@/components/AnimatedSplash';
 import { BrandBackground } from '@/components/BrandBackdrop';
 import { Toast } from '@/components/Toast';
 import { useNotifications } from '@/notifications/useNotifications';
+import { useReportPlays } from '@/stats/useReportPlays';
 import { MusicFullPlayer } from '@/components/MusicFullPlayer';
 import { USES_BACKEND } from '@/api/blac';
 import { REQUIRE_EMAIL_CODE } from '@/api/blac/config';
@@ -74,6 +75,7 @@ function AppShell() {
 
   useSessionSync();
   useNotifications(USES_BACKEND && hasSession && !needsCode);
+  useReportPlays(USES_BACKEND && hasSession && !needsCode);
   useNetworkWatcher();
   useAudioMode();
   useSleepTimerEngine();
@@ -108,8 +110,12 @@ function AppShell() {
           <Stack.Screen name="verify-email" options={{ presentation: 'modal' }} />
           <Stack.Screen name="release/new" options={{ presentation: 'modal' }} />
           <Stack.Screen name="release/edit" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="release/add-audio" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="release/lyrics" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="release/credits" options={{ presentation: 'modal' }} />
           <Stack.Screen name="youtube" options={{ presentation: 'modal' }} />
           <Stack.Screen name="release/[id]" options={{ headerShown: true, title: 'Release', headerBackButtonDisplayMode: 'minimal' }} />
+          <Stack.Screen name="insights" options={{ headerShown: true, title: 'Insights', headerBackButtonDisplayMode: 'minimal' }} />
         </Stack.Protected>
       </Stack>
       </View>

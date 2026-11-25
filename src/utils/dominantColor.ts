@@ -1,5 +1,6 @@
 import { decode as decodeJpeg } from 'jpeg-js';
 import UPNG from 'upng-js';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { readImageBytes } from '@/cache/imageCache';
 
 /**
@@ -13,6 +14,26 @@ import { readImageBytes } from '@/cache/imageCache';
  */
 const cache = new Map<string, string[] | null>();
 const pending = new Map<string, Promise<string[] | null>>();
+
+// The colours of pictures already seen are kept on the phone, so a page does not have to read the picture again
+// (and flash from a default colour) the next time the app opens.
+const STORE_KEY = 'blac-palette-cache-v1';
+const MAX_SAVED = 300;
+void AsyncStorage.getItem(STORE_KEY)
+  .then((raw) => {
+    if (!raw) return;
+    const saved = JSON.parse(raw) as Record<string, string[]>;
+    for (const [url, colors] of Object.entries(saved)) if (!cache.has(url)) cache.set(url, colors);
+  })
+  .catch(() => {});
+let saveTimer: ReturnType<typeof setTimeout> | null = null;
+function saveSoon() {
+  if (saveTimer) clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => {
+    const entries = [...cache.entries()].filter((e): e is [string, string[]] => e[1] !== null).slice(-MAX_SAVED);
+    AsyncStorage.setItem(STORE_KEY, JSON.stringify(Object.fromEntries(entries))).catch(() => {});
+  }, 1500);
+}
 
 const toHex = (n: number) => Math.round(n).toString(16).padStart(2, '0');
 
@@ -119,6 +140,7 @@ async function compute(url: string): Promise<string[] | null> {
 /** Forget every computed colour (used when the image cache is cleared). */
 export function clearColorCache() {
   cache.clear();
+  AsyncStorage.removeItem(STORE_KEY).catch(() => {});
 }
 
 /** Already-computed palette for a picture, if any (`undefined` = not computed yet). The first colour is the main one. */
@@ -135,6 +157,7 @@ export function artworkPalette(url: string): Promise<string[] | null> {
     promise = compute(url)
       .then((colors) => {
         cache.set(url, colors);
+        saveSoon();
         return colors;
       })
       .catch(() => null) // network or format problem: not cached, so a later look can retry

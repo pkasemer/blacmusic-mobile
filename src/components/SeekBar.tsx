@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { View } from 'react-native';
 import { useAudioPlaylistStatus } from 'expo-audio';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, { useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
+import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
 import { formatTime } from '@/audio/music/queue';
 import { getPlaylist, seekMusic } from '@/audio/music/musicEngine';
@@ -19,7 +19,7 @@ const TOUCH_HEIGHT = 36;
  * It follows the native player directly (not the store) so the rest of the screen does not re-render
  * every half second. While dragging it shows where you are dragging to and seeks once on release.
  */
-export function SeekBar({ trackColor, fillColor }: { trackColor?: string; fillColor?: string }) {
+export function SeekBar({ trackColor, fillColor, slim }: { trackColor?: string; fillColor?: string; /** No thumb; the bar grows while touched, like Apple Music. */ slim?: boolean }) {
   const { colors } = useTheme();
   const status = useAudioPlaylistStatus(getPlaylist());
   const duration = status.duration > 0 ? status.duration : 0;
@@ -76,6 +76,10 @@ export function SeekBar({ trackColor, fillColor }: { trackColor?: string; fillCo
   /* eslint-enable react-hooks/immutability */
 
   const fillStyle = useAnimatedStyle(() => ({ width: `${fraction.value * 100}%` }));
+  const trackStyle = useAnimatedStyle(() => {
+    const h = slim ? withTiming(dragging.value ? 12 : 6, { duration: 140 }) : TRACK_HEIGHT;
+    return { height: h, borderRadius: h / 2 };
+  });
   const thumbStyle = useAnimatedStyle(() => ({
     transform: [
       { translateX: fraction.value * width.value - THUMB / 2 },
@@ -99,18 +103,9 @@ export function SeekBar({ trackColor, fillColor }: { trackColor?: string; fillCo
           }}
           style={{ height: TOUCH_HEIGHT, justifyContent: 'center' }}
         >
-          <View
-            style={{
-              height: TRACK_HEIGHT,
-              borderRadius: TRACK_HEIGHT / 2,
-              backgroundColor: trackColor ?? colors.borderStrong,
-              overflow: 'hidden',
-            }}
-          >
-            <Animated.View
-              style={[{ height: TRACK_HEIGHT, backgroundColor: fillColor ?? colors.text }, fillStyle]}
-            />
-          </View>
+          <Animated.View style={[{ backgroundColor: trackColor ?? colors.borderStrong, overflow: 'hidden' }, trackStyle]}>
+            <Animated.View style={[{ height: '100%', backgroundColor: fillColor ?? colors.text }, fillStyle]} />
+          </Animated.View>
           <Animated.View
             pointerEvents="none"
             style={[
@@ -121,6 +116,7 @@ export function SeekBar({ trackColor, fillColor }: { trackColor?: string; fillCo
                 height: THUMB,
                 borderRadius: THUMB / 2,
                 backgroundColor: fillColor ?? colors.text,
+                opacity: slim ? 0 : 1,
               },
               thumbStyle,
             ]}

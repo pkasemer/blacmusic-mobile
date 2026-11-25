@@ -84,6 +84,8 @@ export function youtubeErrorText(error: unknown): string {
         return 'Some songs still need their audio.';
       case 'no_audio':
         return 'Add audio for at least one song first.';
+      case 'import_disabled':
+        return "That way of importing isn't available right now.";
       case 'busy':
         return 'That file is being processed right now. Try again in a moment.';
       case 'rights_not_accepted':
