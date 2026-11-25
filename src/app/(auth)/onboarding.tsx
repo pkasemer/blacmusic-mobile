@@ -1,176 +1,116 @@
 import { useRef, useState, type ComponentType } from 'react';
 import { Pressable, View, useWindowDimensions } from 'react-native';
 import { useRouter } from 'expo-router';
-import Animated, { Extrapolation, interpolate, useAnimatedScrollHandler, useAnimatedStyle, useSharedValue, type SharedValue } from 'react-native-reanimated';
+import Animated, { Extrapolation, FadeInDown, interpolate, useAnimatedScrollHandler, useAnimatedStyle, useSharedValue, type SharedValue } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ChevronLeft, Compass, Download, Headphones, ListMusic, Mic, type LucideProps } from 'lucide-react-native';
+import { ChartNoAxesColumn, ChevronLeft, Download, Headphones, Heart, ListMusic, MessageSquareQuote, Search, Upload, Users, type LucideProps } from 'lucide-react-native';
 import { AuthSheet, type AuthMode } from '@/components/AuthSheet';
-import { Avatar } from '@/components/Avatar';
 import { BrandBackdrop } from '@/components/BrandBackdrop';
 import { Text } from '@/components/Text';
-import { useShowcase } from '@/store/showcaseStore';
-import type { ShowcaseItem } from '@/api/blac/showcase';
 import { radius } from '@/theme';
 import { haptics } from '@/utils/haptics';
 
-interface Slide {
-  key: string;
+const ACCENT = '#BB88FF';
+
+interface Point {
   Icon: ComponentType<LucideProps>;
-  tint: string;
-  accents: string[];
   title: string;
   text: string;
-  chips: string[];
 }
 
-/** The tour: one idea per page, each with its own colour. */
+interface Slide {
+  key: string;
+  /** A small line above the title. */
+  eyebrow: string;
+  title: string;
+  points: Point[];
+}
+
+/** The tour: three pages, each a short title and three lines with an icon. */
 const SLIDES: Slide[] = [
   {
-    key: 'everything',
-    Icon: Headphones,
-    tint: '#BB88FF',
-    accents: ['#6C8BFF', '#FF7AB8'],
+    key: 'listen',
+    eyebrow: 'Listen',
     title: 'Music and podcasts, together',
-    text: 'Songs, albums and shows in one app, so you never switch around to hear what you want.',
-    chips: ['Songs', 'Albums', 'Podcasts', 'Playlists'],
-  },
-  {
-    key: 'discover',
-    Icon: Compass,
-    tint: '#6C8BFF',
-    accents: ['#5FD1A1', '#BB88FF'],
-    title: "Find what you'll love next",
-    text: 'Browse featured artists, fresh releases and playlists for every mood, from workout to chill to focus.',
-    chips: ['Workout', 'Chill', 'Focus', 'Party', 'Throwback'],
+    points: [
+      { Icon: Headphones, title: 'Stream anything', text: 'Songs, albums and shows in one app, with no switching around.' },
+      { Icon: Search, title: 'Find what is next', text: 'Search artists, albums and playlists, and see what is new.' },
+      { Icon: Download, title: 'Take it with you', text: 'Download your favourites and play them without a connection.' },
+    ],
   },
   {
     key: 'yours',
-    Icon: ListMusic,
-    tint: '#FF7AB8',
-    accents: ['#BB88FF', '#FFB65C'],
+    eyebrow: 'Yours',
     title: 'Make it yours',
-    text: 'Like songs, build playlists and pick up right where you stopped. Keep them private or share them.',
-    chips: ['Likes', 'Your playlists', 'Recently played'],
+    points: [
+      { Icon: Heart, title: 'Like what you love', text: 'Your likes are saved in one place, ready to play.' },
+      { Icon: ListMusic, title: 'Build playlists', text: 'Keep them private, or share them with anyone.' },
+      { Icon: MessageSquareQuote, title: 'Sing along', text: 'Follow the lyrics as the song plays.' },
+    ],
   },
   {
-    key: 'anywhere',
-    Icon: Download,
-    tint: '#5FD1A1',
-    accents: ['#6C8BFF', '#BB88FF'],
-    title: 'Listen anywhere',
-    text: 'Download for offline, keep playing in the background, control it from your lock screen, and fall asleep to the sleep timer.',
-    chips: ['Offline', 'Lock screen', 'Sleep timer', 'Sound quality'],
-  },
-  {
-    key: 'artists',
-    Icon: Mic,
-    tint: '#FFB65C',
-    accents: ['#FF7AB8', '#BB88FF'],
+    key: 'share',
+    eyebrow: 'Artists',
     title: 'Share your own music',
-    text: 'Make music? Upload it, bring your songs over from YouTube, and keep ownership. Your Studio shows how every release is doing.',
-    chips: ['Upload', 'YouTube import', 'Schedule releases', 'Your Studio'],
+    points: [
+      { Icon: Upload, title: 'Upload in minutes', text: 'Add a single or an album and choose when it goes live.' },
+      { Icon: ChartNoAxesColumn, title: 'See who is listening', text: 'Plays, listeners and how each release is doing.' },
+      { Icon: Users, title: 'Credit your team', text: 'Name the producers, writers and engineers behind a song.' },
+    ],
   },
 ];
 
-function SlidePage({ slide, width, picks }: { slide: Slide; width: number; picks: ShowcaseItem[] }) {
-  const { Icon } = slide;
-  return (
-    <View style={{ width, paddingHorizontal: 28, justifyContent: 'center', gap: 28 }}>
-      {/* A glass disc with the feature's icon, ringed in its colour */}
-      <View style={{ alignItems: 'center' }}>
-        <View
-          style={{
-            width: 168,
-            height: 168,
-            borderRadius: 84,
-            alignItems: 'center',
-            justifyContent: 'center',
-            backgroundColor: 'rgba(255,255,255,0.10)',
-            borderWidth: 1,
-            borderColor: 'rgba(255,255,255,0.22)',
-          }}
-        >
-          <View
-            style={{
-              width: 116,
-              height: 116,
-              borderRadius: 58,
-              alignItems: 'center',
-              justifyContent: 'center',
-              backgroundColor: slide.tint,
-            }}
-          >
-            <Icon size={54} color="#121212" strokeWidth={2} />
-          </View>
-        </View>
-      </View>
+function Dot({ index, scrollX, width }: { index: number; scrollX: SharedValue<number>; width: number }) {
+  const style = useAnimatedStyle(() => {
+    const input = [(index - 1) * width, index * width, (index + 1) * width];
+    return {
+      width: interpolate(scrollX.value, input, [7, 22, 7], Extrapolation.CLAMP),
+      opacity: interpolate(scrollX.value, input, [0.35, 1, 0.35], Extrapolation.CLAMP),
+    };
+  });
+  return <Animated.View style={[{ height: 7, borderRadius: 4, backgroundColor: '#FFFFFF' }, style]} />;
+}
 
-      <View style={{ gap: 12 }}>
-        <Text variant="display" style={{ fontSize: 34, lineHeight: 40, textAlign: 'center' }}>
+function SlidePage({ slide, width, top }: { slide: Slide; width: number; top: number }) {
+  return (
+    <View style={{ width, paddingHorizontal: 28, paddingTop: top }}>
+      <Animated.View entering={FadeInDown.duration(420)} style={{ gap: 10 }}>
+        <Text variant="label" color="accent" style={{ letterSpacing: 1.2, textTransform: 'uppercase' }}>
+          {slide.eyebrow}
+        </Text>
+        <Text variant="display" style={{ fontSize: 36, lineHeight: 42 }}>
           {slide.title}
         </Text>
-        <Text variant="body" color="textSecondary" style={{ textAlign: 'center', fontSize: 16, lineHeight: 24 }}>
-          {slide.text}
-        </Text>
-      </View>
+      </Animated.View>
 
-      {/* On the discovery page: some of the artists on Blac right now, when the team has picked any */}
-      {slide.key === 'discover' && picks.length > 0 ? (
-        <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 14 }}>
-          {picks.slice(0, 4).map((p) => (
-            <View key={p.id} style={{ alignItems: 'center', gap: 6, width: 64 }}>
-              <Avatar url={p.imageUrl} name={p.name} size={56} />
-              <Text variant="caption" numberOfLines={1} style={{ color: '#FFFFFF', fontSize: 11 }}>
-                {p.name}
+      <View style={{ gap: 26, paddingTop: 40 }}>
+        {slide.points.map((p, i) => (
+          <Animated.View key={p.title} entering={FadeInDown.delay(120 + i * 90).duration(420)} style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 18 }}>
+            <View style={{ width: 40, alignItems: 'center', paddingTop: 2 }}>
+              <p.Icon size={30} color={ACCENT} strokeWidth={1.7} />
+            </View>
+            <View style={{ flex: 1, gap: 3 }}>
+              <Text variant="headline" style={{ fontSize: 18, lineHeight: 23 }}>
+                {p.title}
+              </Text>
+              <Text variant="body" color="textSecondary" style={{ fontSize: 16, lineHeight: 22 }}>
+                {p.text}
               </Text>
             </View>
-          ))}
-        </View>
-      ) : null}
-
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8 }}>
-        {slide.chips.map((chip) => (
-          <View
-            key={chip}
-            style={{
-              paddingHorizontal: 14,
-              paddingVertical: 8,
-              borderRadius: radius.pill,
-              backgroundColor: 'rgba(255,255,255,0.12)',
-              borderWidth: 1,
-              borderColor: 'rgba(255,255,255,0.2)',
-            }}
-          >
-            <Text variant="caption" style={{ color: '#FFFFFF' }}>
-              {chip}
-            </Text>
-          </View>
+          </Animated.View>
         ))}
       </View>
     </View>
   );
 }
 
-function Dot({ index, scrollX, width }: { index: number; scrollX: SharedValue<number>; width: number }) {
-  const style = useAnimatedStyle(() => {
-    const input = [(index - 1) * width, index * width, (index + 1) * width];
-    return {
-      width: interpolate(scrollX.value, input, [8, 26, 8], Extrapolation.CLAMP),
-      opacity: interpolate(scrollX.value, input, [0.4, 1, 0.4], Extrapolation.CLAMP),
-    };
-  });
-  return <Animated.View style={[{ height: 8, borderRadius: 4, backgroundColor: '#FFFFFF' }, style]} />;
-}
-
-/** The feature tour that "Get started" opens: swipe through what the app does, then create an account. */
+/** The tour "Get started" opens: swipe or tap Continue through what the app does, then make an account. */
 export default function OnboardingScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { width } = useWindowDimensions();
   const list = useRef<Animated.FlatList<Slide>>(null);
   const scrollX = useSharedValue(0);
-  const showcase = useShowcase();
-  const picks = showcase.filter((i) => i.kind === 'artist');
   const [page, setPage] = useState(0);
   const [sheet, setSheet] = useState<AuthMode | null>(null);
   const [lastMode, setLastMode] = useState<AuthMode>('signup');
@@ -179,7 +119,6 @@ export default function OnboardingScreen() {
     scrollX.value = event.contentOffset.x;
   });
   const last = page === SLIDES.length - 1;
-  const slide = SLIDES[page] ?? SLIDES[0];
   const goTo = (index: number) => list.current?.scrollToIndex({ index, animated: true });
   const open = (mode: AuthMode) => {
     setLastMode(mode);
@@ -188,15 +127,14 @@ export default function OnboardingScreen() {
 
   return (
     <>
-      <BrandBackdrop tint={slide.tint} accents={slide.accents}>
+      <BrandBackdrop>
         <View style={{ flex: 1, paddingTop: insets.top + 8, paddingBottom: Math.max(insets.bottom, 20) + 8 }}>
-          {/* Back to the welcome screen, and a way to skip to the end */}
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12, height: 44 }}>
             <Pressable onPress={() => router.back()} hitSlop={10} accessibilityRole="button" accessibilityLabel="Back" style={{ padding: 8 }}>
               <ChevronLeft size={26} color="#FFFFFF" />
             </Pressable>
             {!last ? (
-              <Pressable onPress={() => goTo(SLIDES.length - 1)} hitSlop={10} accessibilityRole="button" style={{ padding: 8 }}>
+              <Pressable onPress={() => goTo(SLIDES.length - 1)} hitSlop={10} accessibilityRole="button" style={{ padding: 8, paddingRight: 14 }}>
                 <Text variant="bodyStrong" color="textSecondary">
                   Skip
                 </Text>
@@ -208,7 +146,7 @@ export default function OnboardingScreen() {
             ref={list}
             data={SLIDES}
             keyExtractor={(s) => s.key}
-            renderItem={({ item }) => <SlidePage slide={item} width={width} picks={picks} />}
+            renderItem={({ item }) => <SlidePage slide={item} width={width} top={28} />}
             horizontal
             pagingEnabled
             showsHorizontalScrollIndicator={false}
@@ -219,27 +157,32 @@ export default function OnboardingScreen() {
             style={{ flex: 1 }}
           />
 
-          <View style={{ alignItems: 'center', gap: 22, paddingHorizontal: 24 }}>
+          <View style={{ alignItems: 'center', gap: 22, paddingHorizontal: 28 }}>
             <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center', height: 8 }}>
               {SLIDES.map((s, i) => (
                 <Dot key={s.key} index={i} scrollX={scrollX} width={width} />
               ))}
             </View>
 
-            {last ? (
-              <View style={{ width: '100%', gap: 4 }}>
-                <Pressable
-                  onPress={() => {
+            <View style={{ width: '100%', gap: 4 }}>
+              <Pressable
+                onPress={() => {
+                  if (last) {
                     haptics.medium();
                     open('signup');
-                  }}
-                  accessibilityRole="button"
-                  style={({ pressed }) => ({ height: 56, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center', backgroundColor: '#BB88FF', opacity: pressed ? 0.85 : 1 })}
-                >
-                  <Text variant="bodyStrong" style={{ color: '#121212', fontSize: 17 }}>
-                    Create your account
-                  </Text>
-                </Pressable>
+                  } else {
+                    haptics.select();
+                    goTo(page + 1);
+                  }
+                }}
+                accessibilityRole="button"
+                style={({ pressed }) => ({ height: 56, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center', backgroundColor: ACCENT, opacity: pressed ? 0.85 : 1 })}
+              >
+                <Text variant="bodyStrong" style={{ color: '#121212', fontSize: 17 }}>
+                  {last ? 'Create your account' : 'Continue'}
+                </Text>
+              </Pressable>
+              {last ? (
                 <Pressable onPress={() => open('signin')} accessibilityRole="button" style={{ alignItems: 'center', padding: 14 }}>
                   <Text variant="body" color="textSecondary">
                     Already have an account?{' '}
@@ -248,21 +191,10 @@ export default function OnboardingScreen() {
                     </Text>
                   </Text>
                 </Pressable>
-              </View>
-            ) : (
-              <Pressable
-                onPress={() => {
-                  haptics.select();
-                  goTo(page + 1);
-                }}
-                accessibilityRole="button"
-                style={({ pressed }) => ({ width: '100%', height: 56, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center', backgroundColor: '#BB88FF', opacity: pressed ? 0.85 : 1 })}
-              >
-                <Text variant="bodyStrong" style={{ color: '#121212', fontSize: 17 }}>
-                  Next
-                </Text>
-              </Pressable>
-            )}
+              ) : (
+                <View style={{ height: 48 }} />
+              )}
+            </View>
           </View>
         </View>
       </BrandBackdrop>
@@ -277,4 +209,3 @@ export default function OnboardingScreen() {
     </>
   );
 }
-

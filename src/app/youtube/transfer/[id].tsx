@@ -424,7 +424,7 @@ export default function TransferScreen() {
     const fetching = counted.filter((i) => i.status === 'fetching').length;
     if (needFile > 0) {
       headline = needFile === 1 ? '1 song needs an audio file' : `${needFile} songs need an audio file`;
-      detail = `Choose an audio file (or a video file from YouTube Studio) for ${needFile === 1 ? 'it' : 'each of them'}.${fetching > 0 ? ` ${fetching} more ${fetching === 1 ? 'is' : 'are'} being fetched from YouTube.` : ''} Then start the transfer. ${readyCount} of ${counted.length} ready.`;
+      detail = `Choose an audio file for ${needFile === 1 ? 'it' : 'each of them'}. Then start the transfer. ${readyCount} of ${counted.length} ready.`;
     } else if (fetching > 0) {
       headline = 'Getting your audio';
       detail = `${fetching} of ${counted.length} ${fetching === 1 ? 'song is' : 'songs are'} being fetched from YouTube. You can start the transfer now or wait; a song that can't be fetched will ask you for a file.`;

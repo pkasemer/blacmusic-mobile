@@ -26,7 +26,7 @@ interface Draft {
 
 const newDraft = (): Draft => ({ id: `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`, title: '' });
 
-/** Add songs that are not on YouTube by hand: name them, then choose the audio file for each on the next screen. */
+/** Upload songs from your phone: name them, then choose the audio file for each on the next screen. */
 export default function ManualSongsScreen() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();

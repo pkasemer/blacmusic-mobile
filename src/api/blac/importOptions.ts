@@ -18,16 +18,15 @@ export interface ImportOption {
 }
 
 /** What to show when the server cannot be asked (or is older than this app and has no list yet). */
-export const DEFAULT_IMPORT_OPTIONS: ImportOption[] = [
-  { id: 'manual', enabled: true },
-  { id: 'youtube', enabled: false, note: 'Coming soon' },
-];
+export const DEFAULT_IMPORT_OPTIONS: ImportOption[] = [{ id: 'manual', enabled: true }];
 
 async function getImportOptions(): Promise<ImportOption[]> {
   if (!USES_BACKEND) return DEFAULT_IMPORT_OPTIONS;
   try {
     const data = await apiRequest<{ options?: ImportOption[] }>('/v1/import-options');
-    return data.options && data.options.length > 0 ? data.options : DEFAULT_IMPORT_OPTIONS;
+    // YouTube import is no longer offered, whatever the server lists.
+    const list = (data.options ?? []).filter((o) => o.id !== 'youtube');
+    return list.length > 0 ? list : DEFAULT_IMPORT_OPTIONS;
   } catch (e) {
     // A server without the list yet answers 404 or 405: use the defaults. Anything else (offline) is an error to show.
     if (e instanceof ApiError && (e.status === 404 || e.status === 405)) return DEFAULT_IMPORT_OPTIONS;
