@@ -157,7 +157,7 @@ async function startQueue(items: Playable[], startIndex: number, repeat: RepeatM
  * Starts playing `items` from `startIndex`. With `shuffle`, the chosen item plays first and the rest
  * follow in random order.
  */
-export function playQueue(items: Playable[], startIndex = 0, options: { shuffle?: boolean; source?: PlaybackSource } = {}) {
+export function playQueue(items: Playable[], startIndex = 0, options: { shuffle?: boolean; source?: PlaybackSource; positionSec?: number } = {}) {
   if (items.length === 0) return;
   const state = useMusicStore.getState();
   const shuffle = options.shuffle ?? state.shuffle;
@@ -169,7 +169,7 @@ export function playQueue(items: Playable[], startIndex = 0, options: { shuffle?
   const index = shuffle ? 0 : startIndex;
 
   state.set({ queue: ordered, originalQueue: original, index, shuffle, active: true, playing: true, buffering: true, source: options.source ?? null });
-  void startQueue(ordered, index, state.repeat);
+  void startQueue(ordered, index, state.repeat, options.positionSec ?? 0);
 }
 
 export function toggleMusicPlayback() {

@@ -6,7 +6,7 @@ import { Heart } from 'lucide-react-native';
 import { playQueue } from '@/audio/music/musicEngine';
 import { useAlbums, useFeaturedArtists, useMyPlaylists, useNewReleaseAlbums, usePlayables, usePlaylistGroups, usePlaylists, usePodcasts } from '@/api/blac/queries';
 import { Artwork } from '@/components/Artwork';
-import { HomeHero, TILE_SIZE, type HomeTile } from '@/components/HomeHero';
+import { HomeHero, TILE_SIZE, type HomeFeatured, type HomeTile } from '@/components/HomeHero';
 import { AlbumShelf, ArtistShelf, MusicShelf, PlaylistShelf, PodcastShelf } from '@/components/MusicShelf';
 import { PlaylistCover } from '@/components/PlaylistCover';
 import { ScreenState } from '@/components/ScreenState';
@@ -16,6 +16,9 @@ import { Text } from '@/components/Text';
 import type { Playable, Track } from '@/domain/types';
 import { useFavouritesStore } from '@/store/favouritesStore';
 import { useHistoryStore } from '@/store/historyStore';
+import { useMusicStore } from '@/store/musicStore';
+import { useResumeStore } from '@/store/resumeStore';
+import { formatTime } from '@/audio/music/queue';
 import { useTheme } from '@/theme';
 import { topInset } from '@/utils/platform';
 import { refreshMusic, usePullToRefresh } from '@/hooks/usePullToRefresh';
@@ -50,6 +53,15 @@ export default function HomeScreen() {
   const favourites = usePlayables(favouriteIds);
 
   const recentTracks = useMemo(() => tracksInOrder(recentIds, recent.data), [recentIds, recent.data]);
+
+  // The song that was playing when the app was last used, and the second it stopped at.
+  const resumeId = useResumeStore((s) => s.itemId);
+  const resumePosition = useResumeStore((s) => s.positionSec);
+  const resumeDuration = useResumeStore((s) => s.durationSec);
+  const resumeItems = usePlayables(resumeId ? [resumeId] : []);
+  const resumeTrack = useMemo(() => tracksInOrder(resumeId ? [resumeId] : [], resumeItems.data)[0], [resumeId, resumeItems.data]);
+  // Something is already loaded in the player (playing or paused): the mini player is the way back to it.
+  const playerLoaded = useMusicStore((s) => s.active && s.queue.length > 0);
   const favouriteTracks = useMemo(() => tracksInOrder(favouriteIds, favourites.data), [favouriteIds, favourites.data]);
 
   // "Your" playlists come first in full; the recommended Playlists row leaves yours out so nothing shows twice.
@@ -58,6 +70,40 @@ export default function HomeScreen() {
     const mineIds = new Set(yourPlaylists.map((p) => p.id));
     return (playlists.data ?? []).filter((p) => !mineIds.has(p.id));
   }, [playlists.data, yourPlaylists]);
+
+  // The big card: carry on with the last song, or (for a newcomer) the newest release.
+  const featured = useMemo<HomeFeatured | undefined>(() => {
+    if (playerLoaded) return undefined;
+    const last = resumeTrack ?? recentTracks[0];
+    if (last) {
+      const position = resumeTrack && resumeTrack.id === last.id ? resumePosition : 0;
+      const duration = last.durationSec || resumeDuration;
+      const queue = [last, ...recentTracks.filter((t) => t.id !== last.id)];
+      return {
+        label: 'Continue listening',
+        title: last.title,
+        subtitle: position > 5 && duration > 0 ? `${last.artistName} · ${formatTime(Math.max(0, duration - position))} left` : last.artistName,
+        art: <Artwork id={last.id} logoUrl={last.artworkUrl} size={112} />,
+        tint: { id: last.id, logoUrl: last.artworkUrl },
+        progress: duration > 0 ? position / duration : 0,
+        playLabel: position > 5 ? 'Resume' : 'Play',
+        onPress: () => router.push({ pathname: '/track/[id]', params: { id: last.id } }),
+        onPlay: () => playQueue(queue, 0, { source: { type: 'recent' }, positionSec: position }),
+      };
+    }
+    const fresh = newReleases.data?.[0];
+    if (fresh) {
+      return {
+        label: 'New release',
+        title: fresh.title,
+        subtitle: fresh.artistName,
+        art: <Artwork id={fresh.id} logoUrl={fresh.artworkUrl} size={112} />,
+        tint: { id: fresh.id, logoUrl: fresh.artworkUrl },
+        onPress: () => router.push({ pathname: '/album/[id]', params: { id: fresh.id } }),
+      };
+    }
+    return undefined;
+  }, [playerLoaded, resumeTrack, resumePosition, resumeDuration, recentTracks, newReleases.data, router]);
 
   // Quick-access tiles: likes, then your playlists, then what you played last. A newcomer with none of that
   // gets the featured playlists and albums instead, so the top of Home is never empty.
@@ -154,7 +200,7 @@ export default function HomeScreen() {
         refreshControl={refreshControl}
         showsVerticalScrollIndicator={false}
       >
-        <HomeHero tiles={tiles} />
+        <HomeHero tiles={tiles} featured={featured} />
 
         {loading ? (
           <HomeSkeleton />
@@ -186,7 +232,7 @@ export default function HomeScreen() {
             ) : null}
             <AlbumShelf title="New releases" albums={newReleases.data} />
             <ArtistShelf title="Featured artists" artists={artists.data} />
-            <AlbumShelf title="Featured albums" albums={albums.data} />
+            <AlbumShelf title="Featured" albums={albums.data} />
             {/* Then the themed playlists: one shelf per editorial group ("Workout", "Throwback"…), named and ordered by the backend. */}
             {groupShelves.length > 0 ? (
               groupShelves.map((g) => (

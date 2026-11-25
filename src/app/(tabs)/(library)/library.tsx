@@ -2,11 +2,12 @@ import { useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Pressable, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ArrowDownToLine, Globe, Heart, ListMusic, Lock, Plus, Trash2, X } from 'lucide-react-native';
+import { ArrowDownToLine, Globe, Heart, ListMusic, Lock, Play, Plus, Trash2, X } from 'lucide-react-native';
 import { useMyPlaylists, usePlayables } from '@/api/blac/queries';
 import { playQueue } from '@/audio/music/musicEngine';
 import { formatBytes } from '@/cache/imageCache';
-import { GradientCard } from '@/components/GradientCard';
+import { Artwork } from '@/components/Artwork';
+import { GradientCard, GradientSurface } from '@/components/GradientCard';
 import { PlayAllBar } from '@/components/PlayAllBar';
 import { PlaylistCover } from '@/components/PlaylistCover';
 import { PlaylistFormSheet } from '@/components/PlaylistSheets';
@@ -14,16 +15,73 @@ import { ScreenState } from '@/components/ScreenState';
 import { TabScreen } from '@/components/TabScreen';
 import { Text } from '@/components/Text';
 import { TrackRow } from '@/components/TrackRow';
-import type { DownloadItem, Playlist } from '@/domain/types';
+import type { DownloadItem, Playable, Playlist } from '@/domain/types';
 import { cancelDownload, removeAllDownloads, retryDownload } from '@/offline/downloads';
 import { useDownloadStore } from '@/store/downloadStore';
 import { useFavouritesStore } from '@/store/favouritesStore';
 import { refreshMusic, usePullToRefresh } from '@/hooks/usePullToRefresh';
-import { radius, useTheme } from '@/theme';
+import { useTheme } from '@/theme';
 import { haptics } from '@/utils/haptics';
 import { topInset } from '@/utils/platform';
 
 type Segment = 'favourites' | 'playlists' | 'downloads';
+
+/** The wide card for your liked songs: the last few covers stacked, how many there are, and a Play button. */
+function LikedCard({ items, count, selected, onPress, onPlay }: { items: Playable[]; count: number; selected: boolean; onPress: () => void; onPlay: () => void }) {
+  const { colors } = useTheme();
+  const covers = items.slice(0, 3);
+  return (
+    <GradientSurface selected={selected} onPress={onPress} label={`Likes, ${count} songs`} style={{ height: 112, flexDirection: 'row', alignItems: 'center', gap: 16, paddingHorizontal: 16 }}>
+      <View style={{ width: covers.length > 0 ? 62 + (covers.length - 1) * 26 : 62, height: 72, justifyContent: 'center' }}>
+        {covers.length > 0 ? (
+          covers.map((t, i) => (
+            <View
+              key={t.id}
+              style={{
+                position: 'absolute',
+                left: i * 26,
+                top: 5 + i * 0,
+                zIndex: 3 - i,
+                borderRadius: 9,
+                shadowColor: '#000',
+                shadowOpacity: 0.3,
+                shadowRadius: 6,
+                shadowOffset: { width: 0, height: 3 },
+                opacity: 1 - i * 0.12,
+              }}
+            >
+              <Artwork id={t.id} logoUrl={t.artworkUrl} size={62 - i * 6} />
+            </View>
+          ))
+        ) : (
+          <Heart size={34} color={colors.text} strokeWidth={1.8} />
+        )}
+      </View>
+      <View style={{ flex: 1, gap: 2 }}>
+        <Text variant="title" numberOfLines={1}>
+          Likes
+        </Text>
+        <Text variant="caption" color="textSecondary">
+          {count} {count === 1 ? 'song' : 'songs'}
+        </Text>
+      </View>
+      {count > 0 ? (
+        <Pressable
+          onPress={() => {
+            haptics.select();
+            onPlay();
+          }}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel="Play your likes"
+          style={({ pressed }) => ({ width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.text, opacity: pressed ? 0.8 : 1 })}
+        >
+          <Play size={20} color={colors.bg} fill={colors.bg} strokeWidth={0} style={{ marginLeft: 2 }} />
+        </Pressable>
+      ) : null}
+    </GradientSurface>
+  );
+}
 
 /** One of your playlists: cover, name, whether it is private, and how many songs. */
 function PlaylistRow({ playlist, onPress }: { playlist: Playlist; onPress: () => void }) {
@@ -136,33 +194,55 @@ export default function LibraryScreen() {
 
   const header = (
     <View style={{ gap: 16, paddingBottom: 12 }}>
-      <View style={{ paddingHorizontal: 20 }}>
+      {/* Title, with a round button to make a new playlist */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20 }}>
         <Text variant="display" accessibilityRole="header">
           Library
         </Text>
+        <Pressable
+          onPress={() => {
+            haptics.select();
+            setCreating(true);
+          }}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel="New playlist"
+          style={({ pressed }) => ({ width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surfaceAlt, opacity: pressed ? 0.7 : 1 })}
+        >
+          <Plus size={22} color={colors.text} />
+        </Pressable>
       </View>
-      <View style={{ flexDirection: 'row', gap: 10, paddingHorizontal: 16 }}>
-        <GradientCard
-          Icon={Heart}
-          title="Likes"
-          subtitle={`${favouriteIds.length} ${favouriteIds.length === 1 ? 'song' : 'songs'}`}
+
+      {/* Likes gets the wide card; Playlists and Downloads share the row under it */}
+      <View style={{ gap: 10, paddingHorizontal: 16 }}>
+        <LikedCard
+          items={favouriteItems}
+          count={favouriteIds.length}
           selected={segment === 'favourites'}
           onPress={() => pick('favourites')}
+          onPlay={() => playQueue(favouriteItems, 0, { source: { type: 'favourites' } })}
         />
-        <GradientCard
-          Icon={ListMusic}
-          title="Playlists"
-          subtitle={`${playlistCount} ${playlistCount === 1 ? 'playlist' : 'playlists'}`}
-          selected={segment === 'playlists'}
-          onPress={() => pick('playlists')}
-        />
-        <GradientCard
-          Icon={ArrowDownToLine}
-          title="Downloads"
-          subtitle={`${doneEntries.length} saved`}
-          selected={segment === 'downloads'}
-          onPress={() => pick('downloads')}
-        />
+        <View style={{ flexDirection: 'row', gap: 10 }}>
+          <GradientCard
+            Icon={ListMusic}
+            title="Playlists"
+            subtitle={`${playlistCount} ${playlistCount === 1 ? 'playlist' : 'playlists'}`}
+            selected={segment === 'playlists'}
+            onPress={() => pick('playlists')}
+          />
+          <GradientCard
+            Icon={ArrowDownToLine}
+            title="Downloads"
+            subtitle={`${doneEntries.length} saved`}
+            selected={segment === 'downloads'}
+            onPress={() => pick('downloads')}
+          />
+        </View>
+      </View>
+
+      {/* Which list is open */}
+      <View style={{ paddingHorizontal: 20 }}>
+        <Text variant="title">{segment === 'favourites' ? 'Liked songs' : segment === 'playlists' ? 'Your playlists' : 'Downloaded'}</Text>
       </View>
       {segment === 'downloads' && downloadEntries.length > 0 ? (
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20 }}>
@@ -182,32 +262,7 @@ export default function LibraryScreen() {
           </Pressable>
         </View>
       ) : null}
-      {segment === 'playlists' ? (
-        <View style={{ paddingHorizontal: 20 }}>
-          <Pressable
-            onPress={() => {
-              haptics.select();
-              setCreating(true);
-            }}
-            accessibilityRole="button"
-            style={({ pressed }) => ({
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 8,
-              paddingVertical: 13,
-              borderRadius: radius.pill,
-              backgroundColor: colors.primary,
-              opacity: pressed ? 0.85 : 1,
-            })}
-          >
-            <Plus size={18} color={colors.onPrimary} />
-            <Text variant="bodyStrong" color="onPrimary">
-              New playlist
-            </Text>
-          </Pressable>
-        </View>
-      ) : (
+      {segment === 'playlists' ? null : (
         <PlayAllBar
           items={segment === 'favourites' ? favouriteItems : playableDownloads}
           source={segment === 'favourites' ? { type: 'favourites' } : { type: 'downloads' }}

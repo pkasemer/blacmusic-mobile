@@ -17,6 +17,7 @@ import { BrandBackground } from '@/components/BrandBackdrop';
 import { Toast } from '@/components/Toast';
 import { useNotifications } from '@/notifications/useNotifications';
 import { useReportPlays } from '@/stats/useReportPlays';
+import { useSaveProgress } from '@/audio/music/useSaveProgress';
 import { MusicFullPlayer } from '@/components/MusicFullPlayer';
 import { USES_BACKEND } from '@/api/blac';
 import { REQUIRE_EMAIL_CODE } from '@/api/blac/config';
@@ -76,6 +77,7 @@ function AppShell() {
   useSessionSync();
   useNotifications(USES_BACKEND && hasSession && !needsCode);
   useReportPlays(USES_BACKEND && hasSession && !needsCode);
+  useSaveProgress();
   useNetworkWatcher();
   useAudioMode();
   useSleepTimerEngine();

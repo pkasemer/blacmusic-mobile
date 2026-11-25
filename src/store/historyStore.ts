@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { useCurrentItem } from './musicStore';
+import { useCurrentItem, useMusicStore } from './musicStore';
 import { persistStorage } from './storage';
 
 export interface HistoryEntry {
@@ -45,7 +45,9 @@ export function useRecordListeningHistory() {
   // An artist checking their own unpublished track is not a listen.
   const id = item && !(item.kind === 'track' && item.preview) ? item.id : null;
   const record = useHistoryStore((s) => s.record);
+  // Playing from the Recently played shelf must not move songs around while you listen: they are in the list already.
+  const fromRecent = useMusicStore((s) => s.source?.type === 'recent');
   useEffect(() => {
-    if (id) record(id);
-  }, [id, record]);
+    if (id && !fromRecent) record(id);
+  }, [id, record, fromRecent]);
 }

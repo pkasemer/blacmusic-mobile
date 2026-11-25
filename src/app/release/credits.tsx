@@ -8,7 +8,7 @@ import { fetchReleaseCredits, saveReleaseCredits } from '@/api/blac/credits';
 import { useRelease } from '@/api/blac/queries';
 import { PrimaryButton } from '@/components/FormField';
 import { Text } from '@/components/Text';
-import { chooseOne } from '@/components/SettingsList';
+import { OptionSheet } from '@/components/OptionSheet';
 import { CREDIT_ROLES, roleName, type Credit, type CreditRole } from '@/domain/credits';
 import { radius, useTheme } from '@/theme';
 import { fontStyle } from '@/theme/fonts';
@@ -26,7 +26,7 @@ const newKey = () => `${Date.now().toString(36)}${Math.random().toString(36).sli
  */
 export default function CreditsEditorScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { colors, isDark } = useTheme();
+  const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const release = useRelease(id);
@@ -37,6 +37,9 @@ export default function CreditsEditorScreen() {
   const [original, setOriginal] = useState('[]');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** Which credit's role or target is being picked in the bottom sheet. */
+  const [picking, setPicking] = useState<{ kind: 'role' | 'scope'; key: string } | null>(null);
+  const pickingRow = picking ? rows.find((r) => r.key === picking.key) : undefined;
 
   useEffect(() => {
     let cancelled = false;
@@ -68,23 +71,8 @@ export default function CreditsEditorScreen() {
   const changed = current !== original;
   const canSave = changed && !busy;
 
-  const pickRole = (row: Draft) =>
-    chooseOne<CreditRole>({
-      title: 'What did they do?',
-      options: CREDIT_ROLES.map((r) => ({ value: r.value, label: r.label })),
-      current: row.role,
-      isDark,
-      onSelect: (role) => update(row.key, { role, roleLabel: role === 'other' ? row.roleLabel : null }),
-    });
-
-  const pickScope = (row: Draft) =>
-    chooseOne<string>({
-      title: 'This credit is for',
-      options: [{ value: '', label: 'The whole release' }, ...tracks.map((t) => ({ value: t.id, label: t.title }))],
-      current: row.trackId ?? '',
-      isDark,
-      onSelect: (trackId) => update(row.key, { trackId: trackId || null }),
-    });
+  const pickRole = (row: Draft) => setPicking({ kind: 'role', key: row.key });
+  const pickScope = (row: Draft) => setPicking({ kind: 'scope', key: row.key });
 
   const save = async () => {
     if (!canSave) return;
@@ -210,6 +198,24 @@ export default function CreditsEditorScreen() {
           </Text>
         </Pressable>
       </ScrollView>
+
+      {/* Long lists (13 roles, every song of the release) open in a bottom sheet, not a small menu */}
+      <OptionSheet<CreditRole>
+        visible={picking?.kind === 'role' && !!pickingRow}
+        title="What did they do?"
+        options={CREDIT_ROLES.map((r) => ({ value: r.value, label: r.label }))}
+        current={pickingRow?.role}
+        onSelect={(role) => pickingRow && update(pickingRow.key, { role, roleLabel: role === 'other' ? pickingRow.roleLabel : null })}
+        onClose={() => setPicking(null)}
+      />
+      <OptionSheet<string>
+        visible={picking?.kind === 'scope' && !!pickingRow}
+        title="This credit is for"
+        options={[{ value: '', label: 'The whole release' }, ...tracks.map((t) => ({ value: t.id, label: t.title }))]}
+        current={pickingRow?.trackId ?? ''}
+        onSelect={(trackId) => pickingRow && update(pickingRow.key, { trackId: trackId || null })}
+        onClose={() => setPicking(null)}
+      />
     </KeyboardAvoidingView>
   );
 }

@@ -35,7 +35,8 @@
       "autoIncrement": true,
       "env": {
         "APP_VARIANT": "production",
-        "EXPO_PUBLIC_BLAC_API_URL": "https://blacmusic.pkasemer.com"
+        "EXPO_PUBLIC_BLAC_API_URL": "https://blacmusic.pkasemer.com",
+        "EXPO_PUBLIC_REQUIRE_EMAIL_CODE": "true"
       }
     }
   }
