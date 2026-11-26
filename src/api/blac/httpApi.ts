@@ -317,12 +317,12 @@ async function followedReleases(perArtist: number): Promise<Album[]> {
 
 export const httpApi: BlacApi = {
   // ---- Listening ----
-  // The songs topping the chart. Nothing else stands in: a server without a chart ("not found") gives an empty list.
+  // Only what is really trending: nothing else stands in, so a server that cannot tell (400) gives an empty list.
   getTrending: async () => {
     try {
-      return (await apiRequest<{ tracks: WireTrack[] }>('/v1/browse/charts', { query: { limit: 6 } })).tracks.map(toTrack);
+      return (await apiRequest<{ tracks: WireTrack[] }>('/v1/browse/tracks', { query: { sort: 'trending', limit: 6 } })).tracks.map(toTrack);
     } catch (error) {
-      if (error instanceof ApiError && error.status === 404) return [];
+      if (error instanceof ApiError && error.status === 400) return [];
       throw error;
     }
   },
