@@ -5,7 +5,7 @@ import { Heart } from 'lucide-react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withSequence, withSpring, withTiming } from 'react-native-reanimated';
 import { useFavouritesStore, useIsFavourite } from '@/store/favouritesStore';
 import { useTheme } from '@/theme';
-import { ActionPill, useSecondaryButton } from './DetailActions';
+import { ActionButton, useSecondaryButton } from './DetailActions';
 import { haptics } from '@/utils/haptics';
 
 /**
@@ -47,7 +47,7 @@ export function FavouriteButton({
 
   if (variant === 'pill') {
     return (
-      <ActionPill
+      <ActionButton
         label={isFavourite ? 'Liked' : 'Like'}
         hint={isFavourite ? 'Remove from likes' : 'Add to likes'}
         active={isFavourite}

@@ -56,8 +56,9 @@ function FollowButton({ artist }: { artist: Artist }) {
       accessibilityState={{ selected: following }}
       accessibilityLabel={following ? `Following ${artist.name}. Tap to unfollow` : `Follow ${artist.name}`}
       style={({ pressed }) => ({
-        flexGrow: 1,
-        height: 44,
+        height: 46,
+        marginRight: 8,
+        minWidth: 132,
         alignItems: 'center',
         justifyContent: 'center',
         paddingHorizontal: 24,

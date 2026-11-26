@@ -10,7 +10,7 @@ import { usePlaylist } from '@/api/blac/queries';
 import { playQueue } from '@/audio/music/musicEngine';
 import { DownloadAllButton, ShareLinkButton } from '@/components/CollectionActions';
 import { DetailHero, HeroCover, HeroMeta, HeroTitle, useHeroCoverSize, useHeroScroll } from '@/components/DetailHero';
-import { ActionPill, DetailActions, useSecondaryButton } from '@/components/DetailActions';
+import { ActionButton, DetailActions, useSecondaryButton } from '@/components/DetailActions';
 import { PlaylistCover } from '@/components/PlaylistCover';
 import { PlaylistFormSheet } from '@/components/PlaylistSheets';
 import { ScreenState } from '@/components/ScreenState';
@@ -126,7 +126,7 @@ export default function PlaylistScreen() {
                 path={`/playlist/${playlist.id}`}
               />
               {mine ? (
-                <ActionPill
+                <ActionButton
                   label="Edit"
                   hint="Edit this playlist"
                   icon={<Pencil size={17} color={button.ink} />}

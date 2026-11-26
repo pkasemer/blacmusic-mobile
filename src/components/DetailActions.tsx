@@ -17,11 +17,15 @@ export function useSecondaryButton() {
     : { fill: colors.surfaceAlt, activeFill: colors.primarySoft, ink: colors.text, accent: colors.accent, muted: colors.textTertiary };
 }
 
+/** Wide enough for the longest label ("Downloaded"); five of these still fit across a small phone. */
+const ACTION_WIDTH = 66;
+const CIRCLE = 46;
+
 /**
- * A solid pill with an icon and a word, for a page's own actions: download, share, like and so on. Pills in a row
- * share its width and move to a new line when they do not fit.
+ * A page's own action (download, share, like and so on): a small circle with its name underneath. Each is only as big
+ * as it needs to be, so the row stays quiet and leaves the space around it empty.
  */
-export function ActionPill({
+export function ActionButton({
   label,
   icon,
   onPress,
@@ -42,29 +46,20 @@ export function ActionPill({
       accessibilityRole="button"
       accessibilityLabel={hint ?? label}
       accessibilityState={{ selected: !!active }}
-      style={({ pressed }) => ({
-        flexGrow: 1,
-        height: 44,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 7,
-        paddingHorizontal: 16,
-        borderRadius: radius.pill,
-        backgroundColor: active ? button.activeFill : button.fill,
-        opacity: pressed ? 0.7 : 1,
-      })}
+      style={({ pressed }) => ({ width: ACTION_WIDTH, alignItems: 'center', gap: 6, opacity: pressed ? 0.6 : 1 })}
     >
-      {icon}
-      <Text variant="bodyStrong" numberOfLines={1} style={{ color: button.ink }}>
+      <View style={{ width: CIRCLE, height: CIRCLE, borderRadius: CIRCLE / 2, alignItems: 'center', justifyContent: 'center', backgroundColor: active ? button.activeFill : button.fill }}>
+        {icon}
+      </View>
+      <Text variant="caption" color="textSecondary" numberOfLines={1} style={{ fontSize: 11.5, lineHeight: 15 }}>
         {label}
       </Text>
     </Pressable>
   );
 }
 
-/** One of the two wide buttons: Play (purple) and Shuffle. */
-function WideButton({ label, icon, onPress, main }: { label: string; icon: ReactNode; onPress: () => void; main?: boolean }) {
+/** Play (purple) or Shuffle: two equal pills of a modest, fixed width. */
+function MainButton({ label, icon, onPress, main }: { label: string; icon: ReactNode; onPress: () => void; main?: boolean }) {
   const { colors } = useTheme();
   const button = useSecondaryButton();
   return (
@@ -73,8 +68,8 @@ function WideButton({ label, icon, onPress, main }: { label: string; icon: React
       accessibilityRole="button"
       accessibilityLabel={label}
       style={({ pressed }) => ({
-        flex: 1,
-        height: 50,
+        width: 132,
+        height: 44,
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
@@ -94,7 +89,7 @@ function WideButton({ label, icon, onPress, main }: { label: string; icon: React
 
 /**
  * The buttons under the top of every details page (artist, album, playlist, song, podcast), all with their names.
- * First Play and Shuffle, side by side; under them the page's own actions (`tools`). While this page's music is the
+ * First Play and Shuffle, centred; under them the page's own actions (`tools`), centred too. While this page's music is the
  * one loaded in the player, Play reads Pause and pauses or resumes it instead of starting over.
  */
 export function DetailActions({
@@ -124,10 +119,10 @@ export function DetailActions({
 
   return (
     // The top of the page already leaves room below its text, so the buttons sit close under it.
-    <View style={{ gap: 10, paddingHorizontal: 20, marginTop: -16 }}>
+    <View style={{ gap: 20, paddingHorizontal: 20, marginTop: -12 }}>
       {items.length > 0 ? (
-        <View style={{ flexDirection: 'row', gap: 10 }}>
-          <WideButton
+        <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 12 }}>
+          <MainButton
             main
             label={loading ? 'Loading…' : pausable ? 'Pause' : 'Play'}
             icon={
@@ -142,7 +137,7 @@ export function DetailActions({
             onPress={() => (isThis ? toggleMusicPlayback() : playQueue(items, 0, { shuffle: false, source }))}
           />
           {canShuffle ? (
-            <WideButton
+            <MainButton
               label="Shuffle"
               icon={<Shuffle size={18} color={button.ink} />}
               onPress={() => {
@@ -153,7 +148,7 @@ export function DetailActions({
           ) : null}
         </View>
       ) : null}
-      {tools ? <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>{tools}</View> : null}
+      {tools ? <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', columnGap: 2, rowGap: 14 }}>{tools}</View> : null}
     </View>
   );
 }

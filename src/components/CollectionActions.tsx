@@ -5,7 +5,7 @@ import type { Track } from '@/domain/types';
 import { cancelDownload, downloadBlockReason, downloadItem } from '@/offline/downloads';
 import { useDownloadStore } from '@/store/downloadStore';
 import { haptics } from '@/utils/haptics';
-import { ActionPill, useSecondaryButton } from './DetailActions';
+import { ActionButton, useSecondaryButton } from './DetailActions';
 
 /**
  * Share button for an artist, album, playlist, song or podcast: opens the system share sheet with a message and a link that opens it in
@@ -23,7 +23,7 @@ export function ShareLinkButton({ label, message, path }: { label: string; messa
     }
   };
   return (
-    <ActionPill label="Share" hint={label} onPress={share} icon={<Share2 size={17} color={button.ink} />} />
+    <ActionButton label="Share" hint={label} onPress={share} icon={<Share2 size={17} color={button.ink} />} />
   );
 }
 
@@ -82,7 +82,7 @@ export function DownloadAllButton({ tracks, what }: { tracks: Track[]; what: str
 
   const shown = blocked ? 'Downloads off' : allDone ? 'Downloaded' : busy ? `Saving ${done}/${eligible.length}` : 'Download';
   return (
-    <ActionPill
+    <ActionButton
       label={shown}
       hint={label}
       onPress={press}

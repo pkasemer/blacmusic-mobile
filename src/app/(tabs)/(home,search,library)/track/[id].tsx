@@ -15,7 +15,7 @@ import { DownloadAllButton, ShareLinkButton } from '@/components/CollectionActio
 import { Chip } from '@/components/Chip';
 import { DetailHero, HeroCover, HeroMeta, HeroTitle, useHeroCoverSize, useHeroScroll } from '@/components/DetailHero';
 import { FavouriteButton } from '@/components/FavouriteButton';
-import { ActionPill, DetailActions, useSecondaryButton } from '@/components/DetailActions';
+import { ActionButton, DetailActions, useSecondaryButton } from '@/components/DetailActions';
 import { AddToPlaylistSheet } from '@/components/PlaylistSheets';
 import { ScreenState } from '@/components/ScreenState';
 import { ArtistName } from '@/components/ArtistName';
@@ -163,8 +163,8 @@ export default function TrackScreen() {
               {track.preview ? null : (
                 <>
                   <ShareLinkButton label={`Share ${track.title}`} message={`Listen to "${track.title}" by ${track.artistName} on Blac`} path={`/track/${track.id}`} />
-                  <ActionPill label="Add to queue" icon={<ListEnd size={18} color={button.ink} />} onPress={() => addToQueue(track)} />
-                  <ActionPill label="Add to playlist" icon={<ListPlus size={18} color={button.ink} />} onPress={() => setAdding(true)} />
+                  <ActionButton label="Queue" hint="Add to queue" icon={<ListEnd size={18} color={button.ink} />} onPress={() => addToQueue(track)} />
+                  <ActionButton label="Playlist" hint="Add to playlist" icon={<ListPlus size={18} color={button.ink} />} onPress={() => setAdding(true)} />
                 </>
               )}
             </>
