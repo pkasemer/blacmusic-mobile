@@ -114,7 +114,7 @@ function AppShell() {
           <Stack.Screen name="verify-code" options={{ animation: 'fade' }} />
         </Stack.Protected>
         <Stack.Protected guard={inApp}>
-          <Stack.Screen name="(tabs)" />
+          <Stack.Screen name="(tabs)" options={{ title: 'Back' }} />
           <Stack.Screen name="become-artist" options={{ presentation: 'modal' }} />
           <Stack.Screen name="verify-email" options={{ presentation: 'modal' }} />
           <Stack.Screen name="release/new" options={{ presentation: 'modal' }} />

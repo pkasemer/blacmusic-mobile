@@ -4,6 +4,19 @@ import { useTheme } from '@/theme';
 /** Pages that open on top of a tab's own screen. They live inside the tab, so the tab bar and mini player stay. */
 const DETAIL_PAGES = ['artist/[id]', 'album/[id]', 'track/[id]', 'podcast/[id]', 'playlist/[id]', 'more/[list]'];
 
+/** What each screen is called, including in the list shown when the back button is held down. */
+const TITLES: Record<string, string> = {
+  index: 'Home',
+  search: 'Search',
+  library: 'Library',
+  'artist/[id]': 'Artist',
+  'album/[id]': 'Album',
+  'track/[id]': 'Song',
+  'podcast/[id]': 'Podcast',
+  'playlist/[id]': 'Playlist',
+};
+const ARTWORK_PAGES = ['artist/[id]', 'album/[id]', 'track/[id]', 'playlist/[id]'];
+
 /**
  * One navigation stack per tab (Home, Search, Library). The artist, album, track and podcast pages are shared:
  * this file is used by all three tabs, and each stack starts on its own main screen (`index`, `search` or
@@ -24,9 +37,11 @@ export default function TabStackLayout() {
         contentStyle: { backgroundColor: colors.bg },
         // The native header draws with the system's light colours unless told otherwise.
         headerUserInterfaceStyle: isDark ? 'dark' : 'light',
-        // Without a title the header would print the route's own name ("album/[id]"), which showed while a page was
-        // still loading or could not be opened. The pages with artwork draw their name themselves.
-        title: route.name === 'podcast/[id]' ? 'Podcast' : route.name === 'more/[list]' ? ((route.params as { title?: string } | undefined)?.title ?? 'More') : '',
+        // Every screen needs a proper name: the header and the list under a held back button print the route's own name
+        // ("album/[id]", "index") otherwise.
+        title: route.name === 'more/[list]' ? ((route.params as { title?: string } | undefined)?.title ?? 'More') : (TITLES[route.name] ?? ''),
+        // The pages with artwork draw their name themselves, so their header stays blank.
+        ...(ARTWORK_PAGES.includes(route.name) ? { headerTitle: '' } : null),
       })}
     />
   );
