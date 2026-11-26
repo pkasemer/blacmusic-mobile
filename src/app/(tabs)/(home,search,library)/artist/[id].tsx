@@ -30,10 +30,11 @@ import { formatCount } from '@/utils/format';
 const POPULAR_SHOWN = 5;
 
 /**
- * The releases with the most popular songs first. The server lists releases newest first but ranks songs by how often
- * they are saved, so a release takes the place of its best song; the others follow, newest first.
+ * The most popular releases first. A current server ranks each release as a whole. An older one lists them newest
+ * first, so there a release takes the place of its most saved song and the others follow, newest first.
  */
 function byPopularity(albums: Album[] | undefined, popular: Track[]) {
+  if (albums?.[0]?.rankedByPopularity) return albums;
   const rank = (a: Album) => {
     const place = popular.findIndex((t) => t.releaseId === a.id);
     return place < 0 ? popular.length : place;

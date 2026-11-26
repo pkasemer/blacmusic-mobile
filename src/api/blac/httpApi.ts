@@ -392,10 +392,11 @@ export const httpApi: BlacApi = {
   },
 
   getArtistAlbums: async (artistId) => {
-    const data = await apiRequest<{ releases: WireRelease[] }>(`/v1/artists/${encodeURIComponent(artistId)}/releases`, {
-      query: { limit: 50 },
+    // A server that can rank whole releases says so with `sort`; an older one ignores the request and lists newest first.
+    const data = await apiRequest<{ releases: WireRelease[]; sort?: string }>(`/v1/artists/${encodeURIComponent(artistId)}/releases`, {
+      query: { sort: 'popular', limit: 50 },
     });
-    return data.releases.map((r) => toAlbum(r, { id: artistId, name: '' }));
+    return data.releases.map((r) => ({ ...toAlbum(r, { id: artistId, name: '' }), rankedByPopularity: data.sort === 'popular' }));
   },
 
   getArtistPopularTracks: async (artistId) => {

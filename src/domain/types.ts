@@ -109,6 +109,8 @@ export interface Album {
   trackCount: number;
   genre?: string;
   description?: string;
+  /** The server listed this among an artist's releases in order of popularity (older servers cannot). */
+  rankedByPopularity?: boolean;
 }
 
 /** An album with its tracks in order. */
