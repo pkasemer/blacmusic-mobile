@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Playable } from '@/domain/types';
+import type { Playable, Track } from '@/domain/types';
 import type { RepeatMode } from '@/audio/music/queue';
 import type { PlaybackSource } from '@/audio/music/source';
 
@@ -15,6 +15,10 @@ interface MusicState {
   originalQueue: Playable[];
   /** Songs added with "Add to queue" that have not had their turn yet. These are the entries in `queue` themselves. */
   waiting: ReadonlySet<Playable>;
+  /** Songs autoplay added when the queue ran out, each with the song its batch was chosen from. */
+  autoplay: ReadonlyMap<Playable, Track>;
+  /** Autoplay is looking for songs to carry on with. */
+  findingMore: boolean;
   index: number;
   shuffle: boolean;
   repeat: RepeatMode;
@@ -34,6 +38,8 @@ const EMPTY = {
   queue: [] as Playable[],
   originalQueue: [] as Playable[],
   waiting: new Set<Playable>() as ReadonlySet<Playable>,
+  autoplay: new Map<Playable, Track>() as ReadonlyMap<Playable, Track>,
+  findingMore: false,
   index: 0,
   active: false,
   playing: false,

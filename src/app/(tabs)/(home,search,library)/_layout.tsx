@@ -2,7 +2,7 @@ import { Stack } from 'expo-router';
 import { useTheme } from '@/theme';
 
 /** Pages that open on top of a tab's own screen. They live inside the tab, so the tab bar and mini player stay. */
-const DETAIL_PAGES = ['artist/[id]', 'album/[id]', 'track/[id]', 'podcast/[id]', 'playlist/[id]', 'more/[list]'];
+const DETAIL_PAGES = ['artist/[id]', 'album/[id]', 'track/[id]', 'podcast/[id]', 'playlist/[id]', 'more/[list]', 'mix/[id]'];
 
 /** What each screen is called, including in the list shown when the back button is held down. */
 const TITLES: Record<string, string> = {
@@ -14,8 +14,9 @@ const TITLES: Record<string, string> = {
   'track/[id]': 'Song',
   'podcast/[id]': 'Podcast',
   'playlist/[id]': 'Playlist',
+  'mix/[id]': 'Mix',
 };
-const ARTWORK_PAGES = ['artist/[id]', 'album/[id]', 'track/[id]', 'playlist/[id]'];
+const ARTWORK_PAGES = ['artist/[id]', 'album/[id]', 'track/[id]', 'playlist/[id]', 'mix/[id]'];
 
 /**
  * One navigation stack per tab (Home, Search, Library). The artist, album, track and podcast pages are shared:

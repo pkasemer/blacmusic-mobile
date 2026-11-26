@@ -9,9 +9,10 @@ function playSource(type: string | undefined): string {
     case 'album':
     case 'playlist':
     case 'artist':
-    case 'radio':
     case 'downloads':
       return type;
+    case 'mix':
+      return 'radio';
     case 'release':
       return 'album';
     case 'favourites':

@@ -183,6 +183,8 @@ export const mockApi: BlacApi = {
   getFollowedReleases: () => delay<Album[]>([]),
   // The sample data is too small for a second page.
   getMorePage: () => delay<MorePage>({ items: [], next: null }),
+  getMix: ({ reference, excludeIds, limit }) =>
+    delay(TRACKS.filter((t) => t.genre === reference.genre && t.id !== reference.id && !excludeIds.includes(t.id)).slice(0, limit)),
   setFollowing: () => delay(undefined, 150),
   getRelatedArtists: (artistId) => delay(artistsFromTracks(TRACKS).filter((a) => a.id !== artistId)),
   getRelatedAlbums: (album) => delay(albumsFromTracks(TRACKS).filter((a) => a.id !== album.id)),

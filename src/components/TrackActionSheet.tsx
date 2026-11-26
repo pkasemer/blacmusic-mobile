@@ -7,7 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CircleCheck, Download, Heart, ListEnd, ListMinus, ListPlus, Radio, Share2, UserRound } from 'lucide-react-native';
 import { addToQueue } from '@/audio/music/musicEngine';
 import { queuedAhead } from '@/audio/music/queue';
-import { startRadio } from '@/audio/music/radio';
+import { startMix } from '@/audio/music/startMix';
 import type { Track } from '@/domain/types';
 import { cancelDownload, downloadBlockReason, downloadItem } from '@/offline/downloads';
 import { useDownload } from '@/store/downloadStore';
@@ -68,7 +68,7 @@ function ActionRow({
 
 /**
  * The "more" menu for one song, as a sheet that slides up from the bottom: add to the queue, favourite, download,
- * share, go to the artist and start a radio from it. `track` is the song to show it for, or `null` for closed.
+ * share, go to the artist and start a mix from it. `track` is the song to show it for, or `null` for closed.
  */
 function TrackActionSheet({
   track,
@@ -85,7 +85,7 @@ function TrackActionSheet({
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const [closing, setClosing] = useState(false);
-  const [radioBusy, setRadioBusy] = useState(false);
+  const [mixBusy, setMixBusy] = useState(false);
   const id = track?.id ?? '';
   const favourite = useIsFavourite(id);
   const toggleFavourite = useFavouritesStore((s) => s.toggle);
@@ -159,11 +159,18 @@ function TrackActionSheet({
     });
   };
 
-  const onRadio = async () => {
-    setRadioBusy(true);
-    const started = await startRadio(track);
-    setRadioBusy(false);
-    if (started) dismiss();
+  const onMix = async () => {
+    haptics.select();
+    setMixBusy(true);
+    const started = await startMix(track);
+    setMixBusy(false);
+    // The mix is playing: close the menu and show what is in it.
+    if (started) {
+      dismiss(() => {
+        options?.onNavigate?.();
+        router.push({ pathname: '/mix/[id]', params: { id: track.id } });
+      });
+    }
   };
 
   const iconColor = colors.text;
@@ -221,6 +228,13 @@ function TrackActionSheet({
               onPress={onQueue}
             />
             <ActionRow
+              icon={mixBusy ? <ActivityIndicator size="small" color={colors.accent} /> : <Radio size={22} color={iconColor} />}
+              label={mixBusy ? 'Making your mix…' : 'Start mix'}
+              detail="Plays songs like this one"
+              onPress={onMix}
+              disabled={mixBusy}
+            />
+            <ActionRow
               icon={<Heart size={22} color={favourite ? colors.accent : iconColor} fill={favourite ? colors.accent : 'none'} />}
               label={favourite ? 'Remove from likes' : 'Add to likes'}
               onPress={onFavourite}
@@ -246,13 +260,6 @@ function TrackActionSheet({
             />
             <ActionRow icon={<Share2 size={22} color={iconColor} />} label="Share" onPress={onShare} />
             {track.artistId ? <ActionRow icon={<UserRound size={22} color={iconColor} />} label="Go to artist" detail={track.artistName} onPress={onArtist} /> : null}
-            <ActionRow
-              icon={radioBusy ? <ActivityIndicator size="small" color={colors.accent} /> : <Radio size={22} color={iconColor} />}
-              label="Start radio"
-              detail="Songs like this one"
-              onPress={onRadio}
-              disabled={radioBusy}
-            />
           </Animated.View>
         </View>
       ) : null}

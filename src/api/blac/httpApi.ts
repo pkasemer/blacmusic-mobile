@@ -1,3 +1,4 @@
+import { shuffled } from '@/audio/music/queue';
 import type { MoreItem, MorePage } from '@/domain/more';
 import type {
   Album,
@@ -681,6 +682,23 @@ export const httpApi: BlacApi = {
         const data = await apiRequest<{ releases: WireRelease[] }>(`/v1/releases/${id}/related`, { query: { limit: 50 } });
         return { items: data.releases.map((r) => ({ kind: 'album', album: toAlbum(r) })), next: null };
       }
+    }
+  },
+
+  getMix: async ({ reference, userId, reason, excludeIds, limit }) => {
+    try {
+      const data = await apiRequest<{ tracks: WireTrack[] }>('/v1/mixes', {
+        method: 'POST',
+        body: { trackId: reference.id, userId, reason, excludeTrackIds: excludeIds.slice(-200), limit },
+      });
+      return data.tracks.map(toTrack);
+    } catch (error) {
+      if (!isMissing(error)) throw error;
+      // A server without mixes yet: other songs of the same genre, in a different order each time.
+      if (!reference.genre) return [];
+      const skip = new Set([reference.id, ...excludeIds]);
+      const same = await httpApi.getTracksByGenre(reference.genre);
+      return shuffled(same.filter((t) => !skip.has(t.id))).slice(0, limit);
     }
   },
 

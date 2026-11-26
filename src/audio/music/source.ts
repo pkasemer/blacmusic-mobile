@@ -11,7 +11,7 @@ export type PlaybackSource =
   | { type: 'release'; id: string; name: string }
   | { type: 'search'; query: string }
   | { type: 'genre'; name: string }
-  | { type: 'radio'; name: string }
+  | { type: 'mix'; id: string; name: string }
   | { type: 'favourites' }
   | { type: 'downloads' }
   | { type: 'recent' }
@@ -43,8 +43,8 @@ export function describeSource(source: PlaybackSource): { kind: string; name?: s
       return { kind: 'Search results', name: `“${source.query}”` };
     case 'genre':
       return { kind: 'Genre', name: source.name };
-    case 'radio':
-      return { kind: 'Radio', name: source.name };
+    case 'mix':
+      return { kind: 'Mix', name: source.name };
     case 'favourites':
       return { kind: 'Your likes' };
     case 'downloads':
@@ -71,6 +71,8 @@ export function sourceRoute(source: PlaybackSource): { pathname: string; params:
       return { pathname: '/track/[id]', params: { id: source.id } };
     case 'release':
       return { pathname: '/release/[id]', params: { id: source.id } };
+    case 'mix':
+      return { pathname: '/mix/[id]', params: { id: source.id } };
     default:
       return null;
   }

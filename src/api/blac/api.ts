@@ -14,6 +14,20 @@ import type {
   Track,
 } from '@/domain/types';
 
+/** Why songs are being chosen: the listener asked for a mix, or the queue is running out. */
+export type MixReason = 'mix' | 'autoplay';
+
+export interface MixRequest {
+  /** The song the choice is based on. */
+  reference: Track;
+  /** Who is listening. */
+  userId: string | null;
+  reason: MixReason;
+  /** Songs already in the queue, not to be chosen again. */
+  excludeIds: string[];
+  limit: number;
+}
+
 /** What the backend returns for an offline download: a short-lived URL and how long the offline licence lasts. */
 export interface DownloadInfo {
   url: string;
@@ -97,6 +111,8 @@ export interface BlacApi {
   getMorePage(list: MoreList, ref: string | undefined, offset: number): Promise<MorePage>;
   /** The newest releases of the artists the listener follows. Empty when they follow nobody. */
   getFollowedReleases(): Promise<Album[]>;
+  /** Songs chosen from a reference song, for this listener. */
+  getMix(request: MixRequest): Promise<Track[]>;
   /** Follows or unfollows an artist. */
   setFollowing(artistId: string, follow: boolean): Promise<void>;
   getPodcasts(): Promise<Podcast[]>;

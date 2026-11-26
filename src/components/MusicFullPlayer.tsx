@@ -134,8 +134,10 @@ export function MusicFullPlayer() {
   const router = useRouter();
   const menu = useTrackMenu();
   const source = useMusicStore((s) => s.source);
-  const where = source ? describeSource(source) : null;
-  const route = source ? sourceRoute(source) : null;
+  // A song autoplay added says so, and leads to the mix it came from.
+  const basedOn = useMusicStore((s) => (s.active ? s.autoplay.get(s.queue[s.index]) : undefined));
+  const where = basedOn ? { kind: 'Autoplay', name: `Songs like ${basedOn.title}` } : source ? describeSource(source) : null;
+  const route = basedOn ? { pathname: '/mix/[id]', params: { id: basedOn.id } } : source ? sourceRoute(source) : null;
 
   const palette = useArtworkPalette(item ? { id: item.id, logoUrl: item.artworkUrl } : null);
   const tint = palette[0];

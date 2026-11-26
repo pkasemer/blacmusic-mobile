@@ -83,17 +83,21 @@ export function restoreUpcoming<T>(queue: readonly T[], index: number, original:
  * dropped on decides whether it is queued.
  */
 
-export type QueueRow<T> = { kind: 'header'; queued: boolean } | { kind: 'song'; entry: T; queued: boolean };
+export type QueueRow<T, R = never> = { kind: 'header'; queued: boolean; basedOn?: R } | { kind: 'song'; entry: T; queued: boolean };
 
-/** The rows for the songs still to come (the first `limit` of them), with a heading wherever the kind changes. */
-export function upcomingRows<T>(queue: readonly T[], index: number, waiting: ReadonlySet<T>, limit = Infinity): QueueRow<T>[] {
-  const rows: QueueRow<T>[] = [];
-  let last: boolean | null = null;
+/**
+ * The rows for the songs still to come (the first `limit` of them), with a heading wherever the kind changes. `added`
+ * says, for songs autoplay put in, which song they were chosen from; each such batch gets its own heading.
+ */
+export function upcomingRows<T, R = never>(queue: readonly T[], index: number, waiting: ReadonlySet<T>, limit = Infinity, added?: ReadonlyMap<T, R>): QueueRow<T, R>[] {
+  const rows: QueueRow<T, R>[] = [];
+  let last: { queued: boolean; basedOn: R | undefined } | null = null;
   for (const entry of queue.slice(index + 1, index + 1 + limit)) {
     const queued = waiting.has(entry);
-    if (queued !== last) rows.push({ kind: 'header', queued });
+    const basedOn = queued ? undefined : added?.get(entry);
+    if (!last || queued !== last.queued || basedOn !== last.basedOn) rows.push({ kind: 'header', queued, ...(basedOn !== undefined ? { basedOn } : null) });
     rows.push({ kind: 'song', entry, queued });
-    last = queued;
+    last = { queued, basedOn };
   }
   return rows;
 }
@@ -102,7 +106,7 @@ export function upcomingRows<T>(queue: readonly T[], index: number, waiting: Rea
  * What dragging the song at row `from` to row `to` means: which song it now follows (`null`: it plays next) and
  * whether it is queued there. `null` when nothing changes. Nothing can go above the first heading.
  */
-export function dropAt<T>(rows: readonly QueueRow<T>[], from: number, to: number): { entry: T; after: T | null; queued: boolean } | null {
+export function dropAt<T, R = never>(rows: readonly QueueRow<T, R>[], from: number, to: number): { entry: T; after: T | null; queued: boolean } | null {
   const row = rows[from];
   if (!row || row.kind !== 'song') return null;
   const at = Math.max(1, Math.min(to, rows.length - 1));

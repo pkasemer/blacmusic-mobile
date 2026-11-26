@@ -1,7 +1,7 @@
 import { Alert } from 'react-native';
 import { createAudioPlaylist, type AudioPlaylist, type AudioSource as ExpoAudioSource } from 'expo-audio';
 import { blacApi } from '@/api/blac';
-import type { Playable } from '@/domain/types';
+import type { Playable, Track } from '@/domain/types';
 import { localUriFor } from '@/store/downloadStore';
 import { useMusicStore } from '@/store/musicStore';
 import { useSettingsStore } from '@/store/settingsStore';
@@ -9,6 +9,7 @@ import { showToast } from '@/store/toastStore';
 import { haptics } from '@/utils/haptics';
 import { loadedUpTo } from '../../../modules/blac-audio-buffer';
 import { cancelPreload, clearPreloads, fileIsThere, isPreloadFile, preloadedUri, startPreload } from './preload';
+import { fetchMix, rememberMix } from './mixData';
 import type { PlaybackSource } from './source';
 import {
   jumpKeepingQueued,
@@ -61,6 +62,11 @@ let upcomingSeq = 0;
 let loading: Promise<void> = Promise.resolve();
 /** Bumped when the player stops, so a song still on its way into the queue is not added to what plays next. */
 let session = 0;
+/** The queue entries autoplay has already looked beyond (so each is asked about once). */
+let autoplayAsked = new WeakSet<Playable>();
+/** After a failed look for more songs, when to try again. */
+let autoplayRetryAt = 0;
+const AUTOPLAY_RETRY_MS = 30_000;
 /** Songs go into the queue one at a time, in the order they were asked for. */
 let additions: Promise<void> = Promise.resolve();
 /** The listener paused: the player is not waiting for anything, even if little of the song has arrived. */
@@ -303,6 +309,7 @@ export function getPlaylist(): AudioPlaylist {
       state.set({ playing: status.playing, buffering });
     }
     if (status.playing) preloadNext();
+    if (status.playing || status.didJustFinish) void keepGoing();
   });
 
   return created;
@@ -384,6 +391,8 @@ export function playQueue(items: Playable[], startIndex = 0, options: { shuffle?
     queue: ordered,
     originalQueue: original,
     waiting: new Set(queued),
+    autoplay: new Map(),
+    findingMore: false,
     index,
     shuffle,
     active: true,
@@ -392,6 +401,90 @@ export function playQueue(items: Playable[], startIndex = 0, options: { shuffle?
     source: options.source ?? null,
   });
   load(ordered, index, state.repeat, options.positionSec ?? 0);
+}
+
+/**
+ * Plays a mix: the reference song, then the songs chosen from it. If the reference is the song playing now, it carries
+ * on uninterrupted and the mix follows it. Queued songs stay next either way.
+ */
+export function playMix(reference: Track, tracks: Track[]) {
+  const source: PlaybackSource = { type: 'mix', id: reference.id, name: reference.title };
+  catchUp();
+  const state = useMusicStore.getState();
+  const current = state.active ? state.queue[state.index] : undefined;
+  if (!current || current.id !== reference.id) {
+    playQueue([reference, ...tracks], 0, { shuffle: false, source });
+    return;
+  }
+  const queued = queuedAhead(state.queue, state.index, state.waiting);
+  const rest = tracks.filter((t) => t.id !== current.id);
+  haptics.medium();
+  state.set({
+    queue: [...state.queue.slice(0, state.index + 1), ...queued, ...rest],
+    originalQueue: [current, ...rest],
+    waiting: new Set(queued),
+    autoplay: new Map(),
+    shuffle: false,
+    source,
+  });
+  matchUpcoming();
+}
+
+/** The song to choose more from, when the one playing is the last in the queue and nothing else would follow it. */
+function lastSong(): Track | null {
+  const { active, queue, index, repeat } = useMusicStore.getState();
+  const item = active && repeat === 'off' && index === queue.length - 1 ? queue[index] : undefined;
+  return item && item.kind === 'track' && !item.preview ? item : null;
+}
+
+/**
+ * Autoplay: when the last song of the queue is playing, adds songs chosen from it, so the music carries on. They go at
+ * the end, which never touches the playing song. If it has already finished by the time they arrive, they start.
+ */
+async function keepGoing() {
+  const reference = lastSong();
+  if (!reference || autoplayAsked.has(reference) || Date.now() < autoplayRetryAt) return;
+  autoplayAsked.add(reference);
+  const asked = session;
+  const stillLast = () => asked === session && lastSong() === reference;
+  useMusicStore.getState().set({ findingMore: true });
+  try {
+    const mix = await fetchMix(reference, 'autoplay', useMusicStore.getState().queue.map((x) => x.id));
+    // Copies of their own, so they are told apart from the same songs elsewhere.
+    const entries = mix.tracks.map((t) => ({ ...t }));
+    const sources = await Promise.all(entries.map(resolveOrNull));
+    await loadSettled();
+    catchUp();
+    // The listener may have added songs or started something else meanwhile.
+    if (!stillLast()) {
+      autoplayAsked.delete(reference);
+      return;
+    }
+    const found = entries.filter((_, i) => sources[i] !== null);
+    if (found.length === 0) return;
+    rememberMix({ reference, tracks: found });
+    const state = useMusicStore.getState();
+    const ended = queueEnded;
+    const autoplay = new Map(state.autoplay);
+    found.forEach((entry) => autoplay.set(entry, reference));
+    state.set({ queue: [...state.queue, ...found], originalQueue: [...state.originalQueue, ...found], autoplay });
+    showToast(`Autoplay: songs like “${reference.title}” are up next`);
+    if (ended) {
+      const { queue, index, repeat } = useMusicStore.getState();
+      state.set({ index: index + 1, playing: true, buffering: true });
+      load(queue, index + 1, repeat);
+    } else if (getPlaylist().trackCount === state.queue.length) {
+      entries.forEach((entry, i) => {
+        const source = sources[i];
+        if (source) addToNative(entry, source);
+      });
+    }
+  } catch {
+    autoplayAsked.delete(reference);
+    autoplayRetryAt = Date.now() + AUTOPLAY_RETRY_MS;
+  } finally {
+    if (asked === session) useMusicStore.getState().set({ findingMore: false });
+  }
 }
 
 export function toggleMusicPlayback() {
@@ -679,6 +772,8 @@ export function stopMusic() {
   loadSeq++;
   upcomingSeq++;
   session++;
+  autoplayAsked = new WeakSet();
+  autoplayRetryAt = 0;
   clearPreloads();
   const state = useMusicStore.getState();
   if (!playlist || !state.active) {

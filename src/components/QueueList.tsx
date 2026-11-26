@@ -1,5 +1,5 @@
 import { useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Pressable, View } from 'react-native';
+import { ActivityIndicator, Pressable, View } from 'react-native';
 import { ChevronDown, ChevronUp, Menu, X } from 'lucide-react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
@@ -14,10 +14,11 @@ import Animated, {
   type SharedValue,
 } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
+import { useRouter } from 'expo-router';
 import { moveInQueue, playQueueIndex, removeFromQueue } from '@/audio/music/musicEngine';
 import { dragTarget, dropAt, dropOffset, upcomingRows, type QueueRow } from '@/audio/music/queue';
 import { describeSource } from '@/audio/music/source';
-import type { Playable } from '@/domain/types';
+import type { Playable, Track } from '@/domain/types';
 import { useMusicStore } from '@/store/musicStore';
 import type { Ink } from '@/theme/ink';
 import { haptics } from '@/utils/haptics';
@@ -118,13 +119,20 @@ function useRowStyle(drag: Drag, pos: number, version: number) {
 
 // ---- Rows -------------------------------------------------------------------------------------------
 
-function HeaderRow({ label, pos, version, drag }: { label: string; pos: number; version: number; drag: Drag }) {
+function HeaderRow({ label, action, pos, version, drag }: { label: string; action?: { label: string; onPress: () => void }; pos: number; version: number; drag: Drag }) {
   const style = useRowStyle(drag, pos, version);
   return (
-    <Animated.View style={[{ height: HEADER_H, justifyContent: 'flex-end', paddingHorizontal: 24, paddingBottom: 6 }, style]}>
-      <Text variant="bodyStrong" numberOfLines={1} accessibilityRole="header" style={{ fontSize: 15 }}>
+    <Animated.View style={[{ height: HEADER_H, flexDirection: 'row', alignItems: 'flex-end', gap: 12, paddingHorizontal: 24, paddingBottom: 6 }, style]}>
+      <Text variant="bodyStrong" numberOfLines={1} accessibilityRole="header" style={{ flex: 1, fontSize: 15 }}>
         {label}
       </Text>
+      {action ? (
+        <Pressable onPress={action.onPress} hitSlop={10} accessibilityRole="button">
+          <Text variant="caption" color="textSecondary">
+            {action.label}
+          </Text>
+        </Pressable>
+      ) : null}
     </Animated.View>
   );
 }
@@ -285,14 +293,22 @@ export function QueueList({ ink }: { ink: Ink }) {
   const waiting = useMusicStore((s) => s.waiting);
   const repeat = useMusicStore((s) => s.repeat);
   const source = useMusicStore((s) => s.source);
+  const autoplay = useMusicStore((s) => s.autoplay);
+  const findingMore = useMusicStore((s) => s.findingMore);
+  const setMusic = useMusicStore((s) => s.set);
+  const router = useRouter();
+  const openMix = (from: Track) => {
+    setMusic({ isFullOpen: false });
+    router.push({ pathname: '/mix/[id]', params: { id: from.id } });
+  };
   const [limit, setLimit] = useState(PAGE);
   const [showPlayed, setShowPlayed] = useState(false);
   /** The rows as they were when a song was picked up: they hold still until it is dropped. */
-  const [held, setHeld] = useState<QueueRow<Playable>[] | null>(null);
+  const [held, setHeld] = useState<QueueRow<Playable, Track>[] | null>(null);
   const [version, setVersion] = useState(0);
-  const heldRef = useRef<QueueRow<Playable>[]>([]);
+  const heldRef = useRef<QueueRow<Playable, Track>[]>([]);
 
-  const live = useMemo(() => upcomingRows(queue, index, waiting, limit), [queue, index, waiting, limit]);
+  const live = useMemo(() => upcomingRows(queue, index, waiting, limit, autoplay), [queue, index, waiting, limit, autoplay]);
   const rows = held ?? live;
   const heights = useMemo(() => rows.map((r) => (r.kind === 'header' ? HEADER_H : ROW_H)), [rows]);
   const played = queue.slice(0, index);
@@ -338,7 +354,7 @@ export function QueueList({ ink }: { ink: Ink }) {
     setHeld(rows);
   };
 
-  const move = (list: QueueRow<Playable>[], from: number, to: number) => {
+  const move = (list: QueueRow<Playable, Track>[], from: number, to: number) => {
     const change = dropAt(list, from, to);
     if (!change) return;
     haptics.light();
@@ -406,7 +422,14 @@ export function QueueList({ ink }: { ink: Ink }) {
 
         {rows.map((row, pos) =>
           row.kind === 'header' ? (
-            <HeaderRow key={`heading-${pos}`} label={row.queued ? 'Next in queue' : restLabel} pos={pos} version={version} drag={drag} />
+            <HeaderRow
+              key={`heading-${pos}`}
+              label={row.queued ? 'Next in queue' : row.basedOn ? `Autoplay · songs like ${row.basedOn.title}` : restLabel}
+              action={row.basedOn ? { label: 'See mix', onPress: () => openMix(row.basedOn as Track) } : undefined}
+              pos={pos}
+              version={version}
+              drag={drag}
+            />
           ) : (
             <UpcomingRow
               key={rowKey(row.entry)}
@@ -434,13 +457,14 @@ export function QueueList({ ink }: { ink: Ink }) {
 
         {rows.length === 0 ? (
           <View style={{ paddingHorizontal: 32, paddingVertical: 28, gap: 6, alignItems: 'center' }}>
-            <Text variant="bodyStrong">Nothing up next</Text>
+            {findingMore ? <ActivityIndicator color="#FFFFFF" /> : null}
+            <Text variant="bodyStrong">{findingMore ? 'Finding more songs like this…' : 'Nothing up next'}</Text>
             <Text variant="caption" color="textSecondary" style={{ textAlign: 'center' }}>
               {repeat === 'one'
                 ? 'Repeat one is on, so this song plays again.'
                 : repeat === 'all'
                   ? 'Repeat is on, so the queue starts over after this song.'
-                  : 'Choose "Add to queue" on any song to line it up here.'}
+                  : 'Autoplay carries on with songs like the last one. You can also choose "Add to queue" on any song.'}
             </Text>
           </View>
         ) : null}
