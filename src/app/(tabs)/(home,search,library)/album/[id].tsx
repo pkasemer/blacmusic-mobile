@@ -128,7 +128,7 @@ export default function AlbumScreen() {
 
         <CreditsSection credits={credits.data} perTrack />
 
-        <AlbumShelf title="Related albums" albums={related.data} />
+        <AlbumShelf title="Related releases" albums={related.data} />
       </Animated.ScrollView>
       {menu.sheet}
     </TabScreen>
