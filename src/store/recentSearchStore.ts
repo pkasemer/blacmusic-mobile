@@ -20,7 +20,7 @@ export interface RecentOpen {
   at: number;
 }
 
-const MAX_ITEMS = 12;
+const MAX_ITEMS = 6;
 
 interface RecentSearchState {
   /** Newest first. */
@@ -42,6 +42,14 @@ export const useRecentSearchStore = create<RecentSearchState>()(
       remove: (key) => set((state) => ({ items: state.items.filter((i) => i.key !== key) })),
       clear: () => set({ items: [] }),
     }),
-    { name: 'blac-recent-search-v1', storage: persistStorage },
+    {
+      name: 'blac-recent-search-v1',
+      storage: persistStorage,
+      // A phone that saved more before keeps only the newest.
+      merge: (saved, current) => {
+        const items = (saved as Partial<RecentSearchState> | undefined)?.items ?? current.items;
+        return { ...current, items: items.slice(0, MAX_ITEMS) };
+      },
+    },
   ),
 );

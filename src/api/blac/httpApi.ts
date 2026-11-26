@@ -303,7 +303,15 @@ async function followedReleases(perArtist: number): Promise<Album[]> {
 
 export const httpApi: BlacApi = {
   // ---- Listening ----
-  getTrending: () => browseTracks('popular', PAGE),
+  getTrending: async () => {
+    // The songs topping the chart. A server without a chart answers "not found": its popular songs stand in.
+    try {
+      return (await apiRequest<{ tracks: WireTrack[] }>('/v1/browse/charts', { query: { limit: 6 } })).tracks.map(toTrack);
+    } catch (error) {
+      if (!(error instanceof ApiError) || error.status !== 404) throw error;
+      return browseTracks('popular', PAGE);
+    }
+  },
   getNewReleases: () => browseTracks('new', PAGE),
 
   searchTracks: async (query) => {

@@ -3,7 +3,7 @@ import { FlatList, Pressable, TextInput, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Search, X } from 'lucide-react-native';
-import { useNewReleaseAlbums, useSearchAlbums, useSearchArtists, useSearchPlaylists, useTrackSearch, useTrending } from '@/api/blac/queries';
+import { useAlbums, useSearchAlbums, useSearchArtists, useSearchPlaylists, useTrackSearch, useTrending } from '@/api/blac/queries';
 import { playQueue } from '@/audio/music/musicEngine';
 import type { PlaybackSource } from '@/audio/music/source';
 import { ArtistName } from '@/components/ArtistName';
@@ -103,6 +103,9 @@ function RecentSection({ onOpen }: { onOpen: (kind: RecentKind, id: string) => v
   );
 }
 
+/** How many songs "Trending now" lists. */
+const CHART_SIZE = 6;
+
 export default function SearchScreen() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
@@ -118,13 +121,13 @@ export default function SearchScreen() {
   const artists = useSearchArtists(debouncedQuery);
   const albums = useSearchAlbums(debouncedQuery);
   const playlists = useSearchPlaylists(debouncedQuery);
-  // With nothing typed: what is new and what is popular, instead of an empty page.
-  const latest = useNewReleaseAlbums();
+  // With nothing typed: the featured releases and the top of the chart, instead of an empty page.
+  const featured = useAlbums();
   const trending = useTrending();
 
   const dismissKeyboard = useCallback(() => inputRef.current?.blur(), []);
 
-  const trackList = useMemo(() => (searching ? (songs.data ?? []) : (trending.data ?? [])), [searching, songs.data, trending.data]);
+  const trackList = useMemo(() => (searching ? (songs.data ?? []) : (trending.data ?? []).slice(0, CHART_SIZE)), [searching, songs.data, trending.data]);
   const source: PlaybackSource = searching ? { type: 'search', query: debouncedQuery } : { type: 'trending' };
 
   const entries = useMemo<Entry[]>(() => {
@@ -197,7 +200,7 @@ export default function SearchScreen() {
       {!searching ? (
         <>
           <RecentSection onOpen={(kind, id) => open(kind, id)} />
-          <AlbumShelf title="Latest releases" albums={latest.data} more={{ list: 'latest-releases' }} />
+          <AlbumShelf title="Featured releases" albums={featured.data} more={{ list: 'featured-albums' }} />
           <View style={{ paddingHorizontal: 20, paddingTop: 4 }}>
             <Text variant="title" accessibilityRole="header">
               Trending now
