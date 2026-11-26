@@ -2,25 +2,7 @@ import { useCallback, useState } from 'react';
 import { ActivityIndicator, Alert, Platform, Pressable, ScrollView, View } from 'react-native';
 import Constants from 'expo-constants';
 import { useFocusEffect, useRouter } from 'expo-router';
-import {
-  Bell,
-  FileText,
-  HardDrive,
-  History,
-  Info,
-  Mail,
-  Mic,
-  Moon,
-  MoonStar,
-  ShieldCheck,
-  Smartphone,
-  Sun,
-  Timer,
-  Volume2,
-  VolumeX,
-  Waves,
-  type LucideIcon,
-} from 'lucide-react-native';
+import { Bell, FileText, HardDrive, History, Info, Mail, Mic, Moon, MoonStar, ShieldCheck, Smartphone, Sun, Timer, Volume2, VolumeX, Waves, type LucideIcon, Image as ImageIcon, Music, Upload } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { clearImageCache, formatBytes, getCacheStats, type CacheStats } from '@/cache/imageCache';
 import { formatCountdown, useSleepRemaining } from '@/audio/sleepTimer';
@@ -53,6 +35,9 @@ import { useAuthStore } from '@/store/authStore';
 import { useHistoryStore } from '@/store/historyStore';
 import { useSettingsStore, type ThemeMode } from '@/store/settingsStore';
 import { SLEEP_PRESETS, useSleepStore } from '@/store/sleepStore';
+import { clearPreloads } from '@/audio/music/preload';
+import { clearUploadLeftovers, getPreloadStats, getUploadLeftoverStats } from '@/cache/otherCaches';
+import { useUploadStore } from '@/store/uploadStore';
 import { useTheme } from '@/theme';
 import { applyScheme } from '@/theme/scheme';
 import { clearColorCache } from '@/utils/dominantColor';
@@ -375,10 +360,12 @@ function NotificationsGroup() {
 function StorageGroup() {
   const historyCount = useHistoryStore((h) => h.entries.length);
   const clearHistory = useHistoryStore((h) => h.clear);
-  const [stats, setStats] = useState<CacheStats | null>(null);
-  const refresh = useCallback(() => setStats(getCacheStats()), []);
+  // A file picked for upload must stay until it has been sent (or the artist gives up on it).
+  const uploading = useUploadStore((u) => Object.values(u.jobs).some((job) => job.state !== 'ready' && job.state !== 'processing'));
+  const [stats, setStats] = useState<{ images: CacheStats; songs: CacheStats; uploads: CacheStats } | null>(null);
+  const refresh = useCallback(() => setStats({ images: getCacheStats(), songs: getPreloadStats(), uploads: getUploadLeftoverStats() }), []);
 
-  // Re-measure each time the Settings tab is focused, since other tabs keep filling the cache.
+  // Re-measure each time the Settings tab is focused, since other tabs keep filling the caches.
   useFocusEffect(
     useCallback(() => {
       const timer = setTimeout(refresh, 0);
@@ -386,30 +373,62 @@ function StorageGroup() {
     }, [refresh]),
   );
 
-  const emptyCache = stats !== null && stats.count === 0;
+  const size = (cache: CacheStats | undefined) => (cache === undefined ? '…' : cache.count === 0 ? 'Empty' : formatBytes(cache.bytes));
+  const clearImages = () => {
+    clearImageCache();
+    clearColorCache();
+  };
+  const clearAll = () => {
+    clearImages();
+    clearPreloads();
+    if (!uploading) clearUploadLeftovers();
+  };
+  const ask = (title: string, message: string, clear: () => void) =>
+    Alert.alert(title, message, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Clear',
+        style: 'destructive',
+        onPress: () => {
+          clear();
+          refresh();
+          haptics.success();
+        },
+      },
+    ]);
+
+  const all = stats ? [stats.images, stats.songs, stats.uploads] : [];
+  const total = stats ? { bytes: all.reduce((n, c) => n + c.bytes, 0), count: all.reduce((n, c) => n + c.count, 0) } : undefined;
 
   return (
-    <SettingsGroup title="Storage" footer="Cover art is saved on this device so it loads instantly. Clearing it frees space; covers download again when needed.">
+    <SettingsGroup title="Storage" footer="These are temporary copies, made again when needed. Clearing them does not remove your downloads, likes or playlists.">
+      <SettingsRow
+        icon={{ Icon: ImageIcon }}
+        title="Image cache"
+        value={size(stats?.images)}
+        disabled={!stats?.images.count}
+        onPress={() => ask('Clear image cache?', 'Cover art will be downloaded again the next time it is shown.', clearImages)}
+      />
+      <SettingsRow
+        icon={{ Icon: Music }}
+        title="Preloaded songs"
+        value={size(stats?.songs)}
+        disabled={!stats?.songs.count}
+        onPress={() => ask('Clear preloaded songs?', 'Songs saved ahead for smoother playback will be loaded again when needed.', () => clearPreloads())}
+      />
+      <SettingsRow
+        icon={{ Icon: Upload }}
+        title="Upload files"
+        value={uploading ? 'In use' : size(stats?.uploads)}
+        disabled={uploading || !stats?.uploads.count}
+        onPress={() => ask('Clear upload files?', 'These are copies of files you chose to upload. Your original files are not touched.', clearUploadLeftovers)}
+      />
       <SettingsRow
         icon={{ Icon: HardDrive }}
-        title="Clear image cache"
-        value={stats ? (emptyCache ? 'Empty' : formatBytes(stats.bytes)) : '…'}
-        disabled={stats === null || emptyCache}
-        onPress={() =>
-          Alert.alert('Clear image cache?', 'Cover art will be downloaded again the next time it is shown.', [
-            { text: 'Cancel', style: 'cancel' },
-            {
-              text: 'Clear',
-              style: 'destructive',
-              onPress: () => {
-                clearImageCache();
-                clearColorCache();
-                refresh();
-                haptics.success();
-              },
-            },
-          ])
-        }
+        title="Clear all cache"
+        value={size(total)}
+        disabled={!total?.count}
+        onPress={() => ask('Clear all cache?', 'Cover art, preloaded songs and upload copies are removed. Downloads stay.', clearAll)}
       />
       <SettingsRow
         icon={{ Icon: History }}
