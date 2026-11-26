@@ -18,14 +18,19 @@ const TITLES: Record<string, string> = {
 };
 const ARTWORK_PAGES = ['artist/[id]', 'album/[id]', 'track/[id]', 'playlist/[id]', 'mix/[id]'];
 
+/** Two "More" pages are the same only if they list the same thing for the same artist, album or group. */
+const moreListId = (_name: string, params: Record<string, unknown>) => `more/${String(params.list)}/${String(params.ref ?? '')}`;
+
 /**
  * One navigation stack per tab (Home, Search, Library). The artist, album, track and podcast pages are shared:
  * this file is used by all three tabs, and each stack starts on its own main screen (`index`, `search` or
  * `library`), because fixed screens come before `[id]` pages. Pushing a page here keeps the native tab bar and
  * the mini player visible under it.
  */
-export default function TabStackLayout() {
+export default function TabStackLayout({ segment }: { segment?: string }) {
   const { colors, isDark } = useTheme();
+  // Which tab this copy of the layout belongs to, and so which screen it starts on.
+  const main = segment === '(search)' ? 'search' : segment === '(library)' ? 'library' : 'index';
 
   return (
     <Stack
@@ -44,6 +49,13 @@ export default function TabStackLayout() {
         // The pages with artwork draw their name themselves, so their header stays blank.
         ...(ARTWORK_PAGES.includes(route.name) ? { headerTitle: '' } : null),
       })}
-    />
+    >
+      {/* Named first, so it stays the screen the tab starts on. */}
+      <Stack.Screen name={main} />
+      {/* One copy of each page: opening one that is already open brings it forward instead of stacking another. */}
+      {DETAIL_PAGES.map((name) => (
+        <Stack.Screen key={name} name={name} dangerouslySingular={name === 'more/[list]' ? moreListId : true} />
+      ))}
+    </Stack>
   );
 }
