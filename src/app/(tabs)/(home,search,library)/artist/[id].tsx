@@ -18,6 +18,7 @@ import { AlbumShelf, ArtistShelf } from '@/components/MusicShelf';
 import { ShareLinkButton } from '@/components/CollectionActions';
 import { UserCheck, UserPlus } from 'lucide-react-native';
 import { ActionButton, DetailActions, useSecondaryButton } from '@/components/DetailActions';
+import { LatestRelease } from '@/components/LatestRelease';
 import { ScreenState } from '@/components/ScreenState';
 import { Text } from '@/components/Text';
 import { TrackRow } from '@/components/TrackRow';
@@ -160,6 +161,8 @@ export default function ArtistScreen() {
         ) : popular.isPending ? (
           <ActivityIndicator color={colors.accent} />
         ) : null}
+
+        <LatestRelease albums={albums.data} />
 
         <AlbumShelf title="Releases" albums={albums.data} />
 

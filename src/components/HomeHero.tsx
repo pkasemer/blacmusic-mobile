@@ -67,7 +67,7 @@ export interface HomeFeatured {
   playLabel?: string;
 }
 
-function FeaturedCard({ featured }: { featured: HomeFeatured }) {
+export function FeaturedCard({ featured }: { featured: HomeFeatured }) {
   const { colors } = useTheme();
   const tint = useArtworkPalette(featured.tint)[0];
   // The card is a soft wash of the cover's own colour over the page's grey, so it feels like the music it holds.
