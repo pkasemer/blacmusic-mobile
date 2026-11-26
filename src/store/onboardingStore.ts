@@ -4,8 +4,8 @@ import { DEFAULT_DISCOVERY, toggleAll, toggleId, type DiscoveryMode, type Langua
 import type { Track } from '@/domain/types';
 import { persistStorage } from './storage';
 
-/** The preference steps that follow the welcome screen (which is step 1 of 6). */
-export const SETUP_STEPS = ['languages', 'regions', 'genres', 'artists', 'done'] as const;
+/** The steps after the account is made. `profile` (choosing a name) is only for Apple and Google accounts. */
+export const SETUP_STEPS = ['profile', 'languages', 'regions', 'genres', 'artists', 'done'] as const;
 export type SetupStep = (typeof SETUP_STEPS)[number];
 
 /** A chosen artist, with enough to show it again without asking the server. */
@@ -32,13 +32,15 @@ interface Answers {
   ownerId: string | null;
   /** The server does not have the finished answers yet. */
   unsent: boolean;
-  /** Songs from the picks, for a first listen while the server cannot recommend. */
+  /** Songs from the picks: the ready-made first playlist. */
   starter: Track[];
+  /** Home is to present that playlist. */
+  showStarter: boolean;
 }
 
 interface OnboardingState extends Answers {
   begin: () => void;
-  /** Leaves onboarding without finishing (signing in to an existing account). */
+  /** Drops onboarding before there is an account (signing in to an existing one instead). */
   abandon: () => void;
   goTo: (step: SetupStep) => void;
   toggleLanguage: (use: LanguageUse, id: string) => void;
@@ -53,7 +55,7 @@ interface OnboardingState extends Answers {
 
 const EMPTY: Answers = {
   status: 'idle',
-  step: 'languages',
+  step: 'profile',
   preferred: [],
   understood: [],
   regions: [],
@@ -64,6 +66,7 @@ const EMPTY: Answers = {
   ownerId: null,
   unsent: false,
   starter: [],
+  showStarter: false,
 };
 
 export const useOnboardingStore = create<OnboardingState>()(

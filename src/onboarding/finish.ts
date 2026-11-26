@@ -29,8 +29,8 @@ async function send(): Promise<boolean> {
 }
 
 /**
- * Until the server can recommend, a first listen made from the picks: the popular songs of the chosen artists and
- * genres. Nothing is made up; with no picks, or nothing found, there is none.
+ * The ready-made first playlist, from the picks: popular songs of the chosen artists and genres. If those have none,
+ * what is trending. Nothing is made up; if there is nothing at all, there is no playlist.
  */
 async function buildStarter(): Promise<Track[]> {
   const { artists, genres } = useOnboardingStore.getState();
@@ -39,11 +39,12 @@ async function buildStarter(): Promise<Track[]> {
     ...artists.slice(0, ARTISTS_USED).map((a) => blacApi.getArtistPopularTracks(a.id)),
     ...genres.slice(0, GENRES_USED).map((id) => blacApi.getTracksByGenre(catalogue.find((g) => g.id === id)?.label ?? id)),
   ]);
-  return starterTracks(
+  const picked = starterTracks(
     lists.map((l) => (l.status === 'fulfilled' ? l.value : [])),
     STARTER_LENGTH,
     shuffled,
   );
+  return picked.length > 0 ? picked : await blacApi.getTrending();
 }
 
 let finishing: Promise<void> | null = null;
@@ -58,11 +59,32 @@ export function finishOnboarding(): Promise<void> {
     const [sent, starter] = await Promise.all([send().catch(() => false), buildStarter().catch(() => [])]);
     // Signed out while this ran: nothing to finish.
     if ((useAuthStore.getState().user?.id ?? null) !== userId) return;
-    useOnboardingStore.getState().update({ status: 'done', finishing: false, ownerId: userId, unsent: !sent, starter: sent ? [] : starter });
+    useOnboardingStore.getState().update({ status: 'done', finishing: false, ownerId: userId, unsent: !sent, starter, showStarter: starter.length > 0 });
   })().finally(() => {
     finishing = null;
   });
   return finishing;
+}
+
+/**
+ * Mount once in the root layout. Every account has to finish onboarding: one the server says has not is taken through
+ * it. When the server cannot be asked, nobody is held up; it is asked again next time.
+ */
+export function useRequireOnboarding(active: boolean) {
+  const userId = useAuthStore((s) => s.user?.id);
+  useEffect(() => {
+    if (!active || !userId) return;
+    const { status, ownerId } = useOnboardingStore.getState();
+    if (status === 'active' || (status === 'done' && ownerId === userId)) return;
+    onboardingApi
+      .getSaved()
+      .then((saved) => {
+        if (!saved || useAuthStore.getState().user?.id !== userId) return;
+        if (saved.completed) useOnboardingStore.getState().update({ status: 'done', ownerId: userId });
+        else useOnboardingStore.getState().begin();
+      })
+      .catch(() => {});
+  }, [active, userId]);
 }
 
 /** Mount once in the root layout: sends answers the server could not take earlier. */

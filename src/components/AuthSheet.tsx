@@ -6,7 +6,7 @@ import * as Linking from 'expo-linking';
 import { Mail } from 'lucide-react-native';
 import { ApiError, authApi } from '@/api/blac';
 import { GOOGLE_REDIRECT } from '@/api/blac/auth';
-import { radius, useTheme } from '@/theme';
+import { darkColors, radius, useTheme } from '@/theme';
 import { fontStyle } from '@/theme/fonts';
 import { haptics } from '@/utils/haptics';
 import { openLegal } from '@/utils/legal';
@@ -50,7 +50,9 @@ function OptionButton({
   busy,
   disabled,
   tone = 'outline',
+  onBrand,
 }: {
+  onBrand?: boolean;
   label: string;
   icon: React.ReactNode;
   onPress: () => void;
@@ -58,7 +60,8 @@ function OptionButton({
   disabled?: boolean;
   tone?: 'outline' | 'light';
 }) {
-  const { colors } = useTheme();
+  const { colors: theme } = useTheme();
+  const colors = onBrand ? darkColors : theme;
   return (
     <Pressable
       onPress={onPress}
@@ -86,18 +89,23 @@ function OptionButton({
   );
 }
 
-function AuthOptions({
+/** The Apple, Google and email buttons. `onBrand`: drawn straight onto the black first screens, without a heading. */
+export function AuthOptions({
   mode,
   dismiss,
   onEmail,
   onSwitchMode,
+  onBrand,
 }: {
+  onBrand?: boolean;
   mode: AuthMode;
   dismiss: (after?: () => void) => void;
   onEmail: () => void;
   onSwitchMode: () => void;
 }) {
-  const { colors, isDark } = useTheme();
+  const theme = useTheme();
+  const colors = onBrand ? darkColors : theme.colors;
+  const isDark = onBrand || theme.isDark;
   const [busy, setBusy] = useState<'apple' | 'google' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [appleReady, setAppleReady] = useState(false);
@@ -174,12 +182,14 @@ function AuthOptions({
 
   return (
     <View style={{ paddingHorizontal: 20, gap: 12 }}>
-      <View style={{ gap: 4, paddingBottom: 6 }}>
-        <Text variant="title">{signup ? 'Create your account' : 'Sign in to Blac'}</Text>
-        <Text variant="body" color="textSecondary">
-          {signup ? 'It takes a few seconds. Choose how you want to sign up.' : 'Choose how you want to sign in.'}
-        </Text>
-      </View>
+      {onBrand ? null : (
+        <View style={{ gap: 4, paddingBottom: 6 }}>
+          <Text variant="title">{signup ? 'Create your account' : 'Sign in to Blac'}</Text>
+          <Text variant="body" color="textSecondary">
+            {signup ? 'It takes a few seconds. Choose how you want to sign up.' : 'Choose how you want to sign in.'}
+          </Text>
+        </View>
+      )}
 
       {/* Apple's own button, as their design rules ask. Only on iPhone, and only where Apple sign-in works. */}
       {appleReady ? (
@@ -195,6 +205,7 @@ function AuthOptions({
       ) : null}
 
       <OptionButton
+        onBrand={onBrand}
         tone="light"
         label={signup ? 'Sign up with Google' : 'Continue with Google'}
         icon={<GoogleLogo size={20} />}
@@ -204,6 +215,7 @@ function AuthOptions({
       />
 
       <OptionButton
+        onBrand={onBrand}
         label={signup ? 'Sign up with email' : 'Continue with email'}
         icon={<Mail size={20} color={colors.text} />}
         disabled={busy !== null}

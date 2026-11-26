@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Image, Pressable, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
@@ -10,9 +10,6 @@ import { useOnboardingStore } from '@/store/onboardingStore';
 import { radius } from '@/theme';
 import { haptics } from '@/utils/haptics';
 
-/** Resuming happens once each time the app is opened, so Back from step 2 stays on this screen. */
-let resumed = false;
-
 /** Onboarding step 1, the first thing a signed-out person sees: the brand, what it is about, and two ways forward. */
 export default function WelcomeScreen() {
   const insets = useSafeAreaInsets();
@@ -23,13 +20,6 @@ export default function WelcomeScreen() {
     setLastMode(mode);
     setSheet(mode);
   };
-
-  // Closed part way through onboarding: carry on where it was.
-  useEffect(() => {
-    if (resumed) return;
-    resumed = true;
-    if (useOnboardingStore.getState().status === 'active') router.push('/setup');
-  }, [router]);
 
   return (
     <>
@@ -58,7 +48,7 @@ export default function WelcomeScreen() {
               onPress={() => {
                 haptics.medium();
                 useOnboardingStore.getState().begin();
-                router.push('/setup');
+                router.push('/get-started');
               }}
               accessibilityRole="button"
               style={({ pressed }) => ({

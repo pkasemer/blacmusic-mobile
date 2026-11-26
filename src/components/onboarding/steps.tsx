@@ -1,15 +1,14 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, View } from 'react-native';
 import { ChevronDown, ChevronUp, X } from 'lucide-react-native';
 import { useQuery } from '@tanstack/react-query';
-import { NeedsAccount, onboardingApi } from '@/api/blac/onboarding';
+import { onboardingApi } from '@/api/blac/onboarding';
 import { Avatar } from '@/components/Avatar';
 import { Text } from '@/components/Text';
 import { VerifiedBadge } from '@/components/VerifiedBadge';
 import { DISCOVERY_MODES, hasAll, searchLanguages, type LanguageGroup } from '@/domain/onboarding';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { useOnboardingConfig } from '@/onboarding/useConfig';
-import { useAuthStore } from '@/store/authStore';
 import { useOnboardingStore, type PickedArtist } from '@/store/onboardingStore';
 import { haptics } from '@/utils/haptics';
 import { ChoiceCard, ON_BRAND, SearchField, TogglePill } from './parts';
@@ -173,19 +172,20 @@ function ArtistRow({ artist, on, onPress }: { artist: PickedArtist; on: boolean;
   );
 }
 
-export function ArtistStep({ onNeedAccount }: { onNeedAccount: () => void }) {
+export function ArtistStep({ onEmptyCatalogue }: { onEmptyCatalogue: (empty: boolean) => void }) {
   const [search, setSearch] = useState('');
   const wanted = useDebouncedValue(search.trim(), 300);
-  const signedIn = useAuthStore((s) => s.refreshToken !== null);
   const picked = useOnboardingStore((s) => s.artists);
   const toggle = useOnboardingStore((s) => s.toggleArtist);
   const artists = useQuery({
-    queryKey: ['onboarding', 'artists', wanted, signedIn] as const,
+    queryKey: ['onboarding', 'artists', wanted] as const,
     queryFn: () => onboardingApi.getArtists(wanted),
     staleTime: 5 * 60 * 1000,
-    retry: (count, error) => !(error instanceof NeedsAccount) && count < 2,
+    retry: 2,
   });
-  const needsAccount = artists.error instanceof NeedsAccount;
+  // With no artists to offer at all, the step cannot ask for one.
+  const emptyCatalogue = !wanted && artists.data?.length === 0;
+  useEffect(() => onEmptyCatalogue(emptyCatalogue), [emptyCatalogue, onEmptyCatalogue]);
 
   const message = (title: string, text: string, action?: { label: string; onPress: () => void }) => (
     <View style={{ alignItems: 'center', gap: 8, paddingVertical: 24, paddingHorizontal: 12 }}>
@@ -223,17 +223,14 @@ export function ArtistStep({ onNeedAccount }: { onNeedAccount: () => void }) {
         </View>
       ) : null}
 
-      {needsAccount ? (
-        message('Create your account to pick artists', 'Your choices so far are saved. You can also skip this and carry on.', { label: 'Create account', onPress: onNeedAccount })
-      ) : (
-        <>
+      <>
           <SearchField value={search} onChange={setSearch} placeholder="Search artists" />
           {artists.isPending ? (
             <ActivityIndicator color={ON_BRAND.accent} style={{ paddingVertical: 28 }} />
           ) : artists.isError ? (
             message("Can't load artists", 'Check your connection and try again.', { label: 'Try again', onPress: () => void artists.refetch() })
           ) : artists.data.length === 0 ? (
-            message(wanted ? 'No artist found' : 'No artists yet', wanted ? 'Try another name.' : 'You can skip this and follow artists later.')
+            message(wanted ? 'No artist found' : 'No artists yet', wanted ? 'Try another name.' : 'You can carry on and follow artists later.')
           ) : (
             <View>
               {artists.data.map((artist) => (
@@ -241,8 +238,7 @@ export function ArtistStep({ onNeedAccount }: { onNeedAccount: () => void }) {
               ))}
             </View>
           )}
-        </>
-      )}
+      </>
     </View>
   );
 }

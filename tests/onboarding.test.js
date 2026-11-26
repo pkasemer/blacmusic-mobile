@@ -71,6 +71,14 @@ test('choices survive moving between steps and closing the app; beginning again 
   assert.strictEqual(store.getState().status, 'idle');
 });
 
+test('no step can be left without an answer, except artists when the catalogue has none', () => {
+  const none = { preferred: [], regions: [], genres: [], artists: [] };
+  for (const step of ['languages', 'regions', 'genres', 'artists']) assert(rules.missingFor(step, none), step);
+  const all = { preferred: ['luganda'], regions: ['karamoja'], genres: ['rnb'], artists: [{}] };
+  for (const step of ['languages', 'regions', 'genres', 'artists']) assert.strictEqual(rules.missingFor(step, all), null, step);
+  assert.strictEqual(rules.missingFor('artists', none, true), null);
+});
+
 test('what is sent holds ids only, each once, and no guess about the person', () => {
   const payload = rules.toPayload({
     preferred: ['acholi', 'acholi'], understood: [], regions: ['northern_uganda'], discoveryMode: 'explore_more', genres: [],
@@ -97,7 +105,7 @@ test('the first listen takes from each pick in turn, without repeats', () => {
 
 // ---- the API and finishing, against a stand-in server -----------------------------------------------
 
-function app({ routes = {}, signedIn = true } = {}) {
+function app({ routes = {}, signedIn = true, effects = [] } = {}) {
   class ApiError extends Error {
     constructor(status, code) {
       super(code);
@@ -118,20 +126,20 @@ function app({ routes = {}, signedIn = true } = {}) {
   const { createJSONStorage } = require('zustand/middleware');
   const load = makeLoader({
     '@/store/storage': { persistStorage: createJSONStorage(() => device.storage) },
-    '@/store/authStore': { useAuthStore: Object.assign(() => null, { getState: () => auth }) },
+    '@/store/authStore': { useAuthStore: Object.assign((select) => select(auth), { getState: () => auth }) },
     '@/api/blac/http': { ApiError, apiRequest },
     '@/api/blac/config': { reachable: (u) => u ?? null },
     '@/api/blac/index': {
       USES_BACKEND: true,
-      blacApi: { getArtistPopularTracks: async (id) => [{ id: `t-${id}` }], getTracksByGenre: async (g) => [{ id: `g-${g}` }] },
+      blacApi: { getArtistPopularTracks: async (id) => [{ id: `t-${id}` }], getTracksByGenre: async (g) => [{ id: `g-${g}` }], getTrending: async () => [{ id: 'trend' }] },
     },
     '@/api/blac': {
-      blacApi: { getArtistPopularTracks: async (id) => [{ id: `t-${id}` }], getTracksByGenre: async (g) => [{ id: `g-${g}` }] },
+      blacApi: { getArtistPopularTracks: async (id) => [{ id: `t-${id}` }], getTracksByGenre: async (g) => [{ id: `g-${g}` }], getTrending: async () => [{ id: 'trend' }] },
     },
     '@/audio/music/queue': { shuffled: (x) => x },
     '@/api/queryClient': { queryClient: { fetchQuery: async ({ queryFn }) => queryFn() } },
     '@tanstack/react-query': { useQuery: () => ({}) },
-    react: { useEffect: () => {} },
+    react: { useEffect: (effect) => effects.push(effect) },
   });
   return { load, sent, auth, store: load('store/onboardingStore').useOnboardingStore };
 }
@@ -142,6 +150,17 @@ test('without onboarding on the server, signed-out artists need an account and s
   await assert.rejects(onboardingApi.getArtists(''), NeedsAccount);
   const inside = app({ routes: { '/v1/search/artists': { artists: [{ id: 'a1', name: 'N', verified: true }] } } });
   assert.deepStrictEqual(await inside.load('api/blac/onboarding').onboardingApi.getArtists('n'), [{ id: 'a1', name: 'N', avatarUrl: null, verified: true }]);
+});
+
+test('an account the server says has not finished is taken through onboarding; a finished one is not', async () => {
+  for (const [completed, expected] of [[false, 'active'], [true, 'done']]) {
+    const effects = [];
+    const w = app({ routes: { '/v1/onboarding/preferences': { completed } }, effects });
+    w.load('onboarding/finish').useRequireOnboarding(true);
+    effects.forEach((run) => run());
+    await new Promise((r) => setTimeout(r, 20));
+    assert.strictEqual(w.store.getState().status, expected);
+  }
 });
 
 test('finishing without the server keeps the answers to send later and builds a first listen from the picks', async () => {
@@ -167,5 +186,6 @@ test('with the server in place, the answers are saved, onboarding is completed a
   assert.deepStrictEqual(w.sent.filter(([m]) => m === 'POST').map(([, p]) => p), ['/v1/onboarding/preferences', '/v1/onboarding/complete']);
   assert.deepStrictEqual(w.sent.find(([m]) => m === 'POST')[2].languages, { preferred: ['luganda'], understood: [] });
   const s = w.store.getState();
-  assert.deepStrictEqual([s.status, s.unsent, s.starter], ['done', false, []]);
+  // No picks that lead to songs: the ready-made playlist is what is trending, and Home is to show it.
+  assert.deepStrictEqual([s.status, s.unsent, s.starter.map((t) => t.id), s.showStarter], ['done', false, ['trend'], true]);
 });

@@ -10,6 +10,7 @@ import { HomeHero, TILE_SIZE, type HomeFeatured, type HomeTile } from '@/compone
 import { AlbumShelf, ArtistShelf, PlaylistShelf, PodcastShelf } from '@/components/MusicShelf';
 import { PlaylistCover } from '@/components/PlaylistCover';
 import { ScreenState } from '@/components/ScreenState';
+import { StarterPlaylist } from '@/components/StarterPlaylist';
 import { HomeSkeleton } from '@/components/Skeleton';
 import { TabScreen } from '@/components/TabScreen';
 import { Text } from '@/components/Text';
@@ -98,7 +99,7 @@ export default function HomeScreen() {
       const play = () => playQueue(starter, 0, { shuffle: false });
       return {
         label: 'From your picks',
-        title: 'Your first listen',
+        title: 'Your first playlist',
         subtitle: `${starter.length} ${starter.length === 1 ? 'song' : 'songs'} from the artists and genres you chose`,
         art: <Artwork id={first.id} logoUrl={first.artworkUrl} size={112} />,
         tint: { id: first.id, logoUrl: first.artworkUrl },
@@ -214,6 +215,7 @@ export default function HomeScreen() {
         refreshControl={refreshControl}
         showsVerticalScrollIndicator={false}
       >
+        <StarterPlaylist />
         <HomeHero tiles={tiles} featured={featured} />
 
         {loading ? (

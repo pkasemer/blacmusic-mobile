@@ -18,18 +18,16 @@ export const ON_BRAND = {
   chosen: 'rgba(187,136,255,0.18)',
 } as const;
 
-const TOTAL_STEPS = 6;
-
 /** The big button at the bottom of a screen. */
-export function PrimaryAction({ label, onPress, busy }: { label: string; onPress: () => void; busy?: boolean }) {
+export function PrimaryAction({ label, onPress, busy, disabled }: { label: string; onPress: () => void; busy?: boolean; disabled?: boolean }) {
   return (
     <Pressable
       onPress={onPress}
-      disabled={busy}
+      disabled={busy || disabled}
       accessibilityRole="button"
       accessibilityLabel={label}
-      accessibilityState={{ busy: !!busy, disabled: !!busy }}
-      style={({ pressed }) => ({ height: 56, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center', backgroundColor: ON_BRAND.accent, opacity: pressed ? 0.85 : 1 })}
+      accessibilityState={{ busy: !!busy, disabled: !!busy || !!disabled }}
+      style={({ pressed }) => ({ height: 56, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center', backgroundColor: ON_BRAND.accent, opacity: disabled ? 0.4 : pressed ? 0.85 : 1 })}
     >
       {busy ? (
         <ActivityIndicator color={ON_BRAND.onAccent} />
@@ -43,25 +41,32 @@ export function PrimaryAction({ label, onPress, busy }: { label: string; onPress
 }
 
 /**
- * The frame of a preference step: Back, the six-part progress bar and Skip on top; the headline and the choices,
- * scrolling; Continue at the bottom.
+ * The frame of a setup step: Back and the progress bar on top; the headline and the choices, scrolling; Continue at the
+ * bottom. There is no Skip: Continue waits until the step has an answer, and says what is missing.
  */
 export function SetupFrame({
   step,
+  total,
   title,
   description,
   onBack,
-  onSkip,
+  corner,
   onContinue,
+  missing,
+  busy,
   children,
 }: {
-  /** 2 to 6 (the welcome screen is 1). */
   step: number;
+  total: number;
   title: string;
   description: string;
   onBack?: () => void;
-  onSkip?: () => void;
+  /** A quiet link at the top right (signing out, on the first step). */
+  corner?: { label: string; onPress: () => void };
   onContinue: () => void;
+  /** Why the step cannot be left yet. */
+  missing?: string | null;
+  busy?: boolean;
   children: ReactNode;
 }) {
   const insets = useSafeAreaInsets();
@@ -75,16 +80,16 @@ export function SetupFrame({
             </Pressable>
           ) : null}
         </View>
-        <View style={{ flex: 1, flexDirection: 'row', gap: 4 }} accessible accessibilityRole="progressbar" accessibilityLabel={`Step ${step} of ${TOTAL_STEPS}`}>
-          {Array.from({ length: TOTAL_STEPS }, (_, i) => (
+        <View style={{ flex: 1, flexDirection: 'row', gap: 4 }} accessible accessibilityRole="progressbar" accessibilityLabel={`Step ${step} of ${total}`}>
+          {Array.from({ length: total }, (_, i) => (
             <View key={i} style={{ flex: 1, height: 4, borderRadius: 2, backgroundColor: i < step ? ON_BRAND.accent : ON_BRAND.line }} />
           ))}
         </View>
-        <View style={{ width: 52, alignItems: 'flex-end' }}>
-          {onSkip ? (
-            <Pressable onPress={onSkip} hitSlop={10} accessibilityRole="button" accessibilityLabel="Skip this step" style={{ padding: 8 }}>
-              <Text variant="bodyStrong" color="textSecondary">
-                Skip
+        <View style={{ minWidth: 52, alignItems: 'flex-end' }}>
+          {corner ? (
+            <Pressable onPress={corner.onPress} hitSlop={10} accessibilityRole="button" style={{ padding: 8 }}>
+              <Text variant="caption" color="textSecondary">
+                {corner.label}
               </Text>
             </Pressable>
           ) : null}
@@ -109,8 +114,15 @@ export function SetupFrame({
       </ScrollView>
 
       <View style={{ paddingHorizontal: 24, paddingTop: 8, paddingBottom: Math.max(insets.bottom, 16) + 4, width: '100%', maxWidth: 560, alignSelf: 'center' }}>
+        {missing ? (
+          <Text variant="caption" color="textSecondary" style={{ textAlign: 'center', paddingBottom: 8 }} accessibilityLiveRegion="polite">
+            {missing}
+          </Text>
+        ) : null}
         <PrimaryAction
           label="Continue"
+          busy={busy}
+          disabled={!!missing}
           onPress={() => {
             haptics.select();
             onContinue();

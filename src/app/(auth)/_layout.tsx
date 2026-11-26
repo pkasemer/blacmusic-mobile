@@ -11,6 +11,7 @@ export default function AuthLayout() {
   return (
     <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: 'transparent' } }}>
       <Stack.Screen name="welcome" options={{ animation: 'fade' }} />
+      <Stack.Screen name="get-started" />
       {/* The email form draws its own back button. */}
       <Stack.Screen name="sign-in" />
     </Stack>

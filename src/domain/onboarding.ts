@@ -129,6 +129,22 @@ export function mergeConfig(server: Partial<OnboardingConfig> | null | undefined
   };
 }
 
+/**
+ * What is still missing before a step can be left, as a sentence, or `null` when it is done. Onboarding cannot be
+ * skipped: the recommendations are built from these answers. Which languages someone understands may be none, and the
+ * artists step lets go only when the catalogue has no artists to offer.
+ */
+export function missingFor(
+  step: 'languages' | 'regions' | 'genres' | 'artists',
+  chosen: { preferred: string[]; regions: string[]; genres: string[]; artists: unknown[] },
+  noArtists = false,
+): string | null {
+  if (step === 'languages') return chosen.preferred.length > 0 ? null : 'Choose at least one language you enjoy.';
+  if (step === 'regions') return chosen.regions.length > 0 ? null : 'Choose at least one region to explore.';
+  if (step === 'genres') return chosen.genres.length > 0 ? null : 'Choose at least one genre.';
+  return chosen.artists.length > 0 || noArtists ? null : 'Choose at least one artist.';
+}
+
 /** What is sent to the server: ids only, each once. */
 export function toPayload(chosen: {
   preferred: string[];
