@@ -4,6 +4,7 @@ import { queryClient } from '@/api/queryClient';
 import { stopMusic } from '@/audio/music/musicEngine';
 import { removeAllDownloads } from '@/offline/downloads';
 import { useArtistStore } from '@/store/artistStore';
+import { useOnboardingStore } from '@/store/onboardingStore';
 import { bringBackPersonalData, putAwayPersonalData } from '@/auth/personalData';
 import { tokenToRemove } from '@/notifications/push';
 import { useAuthStore } from '@/store/authStore';
@@ -31,6 +32,7 @@ function forgetAccount(userId: string | undefined) {
   putAwayPersonalData(userId);
   removeAllDownloads();
   useArtistStore.getState().clear();
+  useOnboardingStore.getState().reset();
   queryClient.clear();
 }
 

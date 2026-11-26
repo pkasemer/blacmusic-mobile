@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Image, Pressable, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
@@ -6,10 +6,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AuthSheet, type AuthMode } from '@/components/AuthSheet';
 import { BrandBackdrop } from '@/components/BrandBackdrop';
 import { Text } from '@/components/Text';
+import { useOnboardingStore } from '@/store/onboardingStore';
 import { radius } from '@/theme';
 import { haptics } from '@/utils/haptics';
 
-/** The first thing a signed-out person sees: the logo, the name, one line about the app, and two ways forward. */
+/** Resuming happens once each time the app is opened, so Back from step 2 stays on this screen. */
+let resumed = false;
+
+/** Onboarding step 1, the first thing a signed-out person sees: the brand, what it is about, and two ways forward. */
 export default function WelcomeScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -19,6 +23,13 @@ export default function WelcomeScreen() {
     setLastMode(mode);
     setSheet(mode);
   };
+
+  // Closed part way through onboarding: carry on where it was.
+  useEffect(() => {
+    if (resumed) return;
+    resumed = true;
+    if (useOnboardingStore.getState().status === 'active') router.push('/setup');
+  }, [router]);
 
   return (
     <>
@@ -30,11 +41,14 @@ export default function WelcomeScreen() {
               <Image source={require('../../../assets/splash-icon.png')} style={{ width: 96, height: 96 }} resizeMode="contain" />
             </Animated.View>
             <Animated.View entering={FadeInDown.delay(120).duration(500)} style={{ alignItems: 'center', gap: 12 }}>
-              <Text variant="display" style={{ fontSize: 44, lineHeight: 50, textAlign: 'center' }}>
+              <Text variant="label" color="textSecondary">
                 Blac Music
               </Text>
-              <Text variant="body" color="textSecondary" style={{ fontSize: 19, lineHeight: 26, textAlign: 'center', maxWidth: 300 }}>
-                All your music and podcasts, in one place.
+              <Text variant="display" accessibilityRole="header" style={{ fontSize: 36, lineHeight: 43, textAlign: 'center' }}>
+                Your music. Your culture. Your Uganda.
+              </Text>
+              <Text variant="body" color="textSecondary" style={{ fontSize: 18, lineHeight: 25, textAlign: 'center', maxWidth: 320 }}>
+                Discover the sounds, artists and stories that bring Uganda together.
               </Text>
             </Animated.View>
           </View>
@@ -43,7 +57,8 @@ export default function WelcomeScreen() {
             <Pressable
               onPress={() => {
                 haptics.medium();
-                router.push('/onboarding');
+                useOnboardingStore.getState().begin();
+                router.push('/setup');
               }}
               accessibilityRole="button"
               style={({ pressed }) => ({
@@ -56,15 +71,20 @@ export default function WelcomeScreen() {
               })}
             >
               <Text variant="bodyStrong" style={{ color: '#121212', fontSize: 17 }}>
-                Get started
+                Get Started
               </Text>
             </Pressable>
-            <Pressable onPress={() => open('signin')} accessibilityRole="button" accessibilityLabel="Sign in" style={{ alignItems: 'center', padding: 14 }}>
-              <Text variant="body" color="textSecondary">
-                Already have an account?{' '}
-                <Text variant="bodyStrong" color="accent">
-                  Sign in
-                </Text>
+            <Pressable
+              onPress={() => {
+                // Someone with an account goes straight to signing in, without onboarding.
+                useOnboardingStore.getState().abandon();
+                open('signin');
+              }}
+              accessibilityRole="button"
+              style={{ alignItems: 'center', padding: 14 }}
+            >
+              <Text variant="bodyStrong" color="accent">
+                I Already Have an Account
               </Text>
             </Pressable>
           </Animated.View>

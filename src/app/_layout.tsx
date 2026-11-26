@@ -26,7 +26,9 @@ import { REQUIRE_EMAIL_CODE } from '@/api/blac/config';
 import { useSessionSync } from '@/auth/session';
 import { useArtistStore } from '@/store/artistStore';
 import { useAuthStore } from '@/store/authStore';
+import { useSendOnboarding } from '@/onboarding/finish';
 import { useDownloadStore } from '@/store/downloadStore';
+import { useOnboardingStore } from '@/store/onboardingStore';
 import { useFavouritesStore } from '@/store/favouritesStore';
 import { useHistoryStore, useRecordListeningHistory } from '@/store/historyStore';
 import { useSettingsStore } from '@/store/settingsStore';
@@ -37,7 +39,7 @@ import { fontSources } from '@/theme/fonts';
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
 /** True once both persisted Zustand stores have been read from AsyncStorage. */
-const persistedStores = [useSettingsStore, useHistoryStore, useFavouritesStore, useDownloadStore, useArtistStore, useAuthStore];
+const persistedStores = [useSettingsStore, useHistoryStore, useFavouritesStore, useDownloadStore, useArtistStore, useAuthStore, useOnboardingStore];
 
 function useStoresHydrated() {
   const allHydrated = () => persistedStores.every((store) => store.persist.hasHydrated());
@@ -60,7 +62,9 @@ function AppShell() {
   const signedIn = !USES_BACKEND || hasSession;
   // An account made with an email and password must confirm the email (6 digit code) before the app opens.
   const needsCode = useAuthStore((s) => REQUIRE_EMAIL_CODE && s.refreshToken !== null && s.user?.emailVerified === false);
-  const inApp = signedIn && !needsCode;
+  // A new listener part way through onboarding finishes it (or skips through it) before the app opens.
+  const settingUp = useOnboardingStore((s) => s.status === 'active');
+  const inApp = signedIn && !needsCode && !settingUp;
   // The navigator paints its own background from this theme (light grey in light mode). Before sign-in it must be
   // see-through, or it covers the brand backdrop drawn behind it.
   const base = isDark ? DarkTheme : DefaultTheme;
@@ -85,6 +89,7 @@ function AppShell() {
   useRemoveGone(USES_BACKEND && hasSession && !needsCode);
   // Keep up with the artist profile: suspended, given or taken away. None of these signs anyone out.
   useArtistWatch(USES_BACKEND && hasSession && !needsCode);
+  useSendOnboarding(USES_BACKEND && hasSession && !needsCode);
   useNetworkWatcher();
   useAudioMode();
   useSleepTimerEngine();
@@ -112,6 +117,10 @@ function AppShell() {
         {/* Signed in but the email is not confirmed yet: only the code screen. */}
         <Stack.Protected guard={signedIn && needsCode}>
           <Stack.Screen name="verify-code" options={{ animation: 'fade' }} />
+        </Stack.Protected>
+        {/* Onboarding: before there is an account, and after it until the steps are finished. */}
+        <Stack.Protected guard={!signedIn || (settingUp && !needsCode)}>
+          <Stack.Screen name="setup" options={{ animation: 'fade' }} />
         </Stack.Protected>
         <Stack.Protected guard={inApp}>
           <Stack.Screen name="(tabs)" options={{ title: 'Back' }} />

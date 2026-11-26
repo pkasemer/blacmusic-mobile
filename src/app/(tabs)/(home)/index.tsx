@@ -17,6 +17,7 @@ import type { Playable, Track } from '@/domain/types';
 import { useHistoryStore } from '@/store/historyStore';
 import { useLibraryStore, type LibrarySection } from '@/store/libraryStore';
 import { useMusicStore } from '@/store/musicStore';
+import { useOnboardingStore } from '@/store/onboardingStore';
 import { useResumeStore } from '@/store/resumeStore';
 import { formatTime } from '@/audio/music/queue';
 import { useTheme } from '@/theme';
@@ -69,7 +70,10 @@ export default function HomeScreen() {
     return (playlists.data ?? []).filter((p) => !mineIds.has(p.id));
   }, [playlists.data, yourPlaylists]);
 
-  // The big card: carry on with the last song, or (for a newcomer) the newest release.
+  // Songs from the onboarding picks, for a newcomer's first listen.
+  const starter = useOnboardingStore((s) => s.starter);
+
+  // The big card: carry on with the last song, or (for a newcomer) their first mix or the newest release.
   const featured = useMemo<HomeFeatured | undefined>(() => {
     if (playerLoaded) return undefined;
     const last = resumeTrack ?? recentTracks[0];
@@ -89,6 +93,19 @@ export default function HomeScreen() {
         onPlay: () => playQueue(queue, 0, { source: { type: 'recent' }, positionSec: position }),
       };
     }
+    const first = starter[0];
+    if (first) {
+      const play = () => playQueue(starter, 0, { shuffle: false });
+      return {
+        label: 'From your picks',
+        title: 'Your first listen',
+        subtitle: `${starter.length} ${starter.length === 1 ? 'song' : 'songs'} from the artists and genres you chose`,
+        art: <Artwork id={first.id} logoUrl={first.artworkUrl} size={112} />,
+        tint: { id: first.id, logoUrl: first.artworkUrl },
+        onPress: play,
+        onPlay: play,
+      };
+    }
     const fresh = newReleases.data?.[0];
     if (fresh) {
       return {
@@ -101,7 +118,7 @@ export default function HomeScreen() {
       };
     }
     return undefined;
-  }, [playerLoaded, resumeTrack, resumePosition, resumeDuration, recentTracks, newReleases.data, router]);
+  }, [playerLoaded, resumeTrack, resumePosition, resumeDuration, recentTracks, starter, newReleases.data, router]);
 
   // Quick-access tiles: likes and recently played (both open in the Library), then your playlists, then what you
   // played last. A newcomer with none of that gets the featured playlists and albums too, so the top of Home is full.
