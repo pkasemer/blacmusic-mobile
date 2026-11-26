@@ -24,7 +24,9 @@ export default function TabStackLayout() {
         contentStyle: { backgroundColor: colors.bg },
         // The native header draws with the system's light colours unless told otherwise.
         headerUserInterfaceStyle: isDark ? 'dark' : 'light',
-        ...(route.name === 'podcast/[id]' ? { title: 'Podcast' } : null),
+        // Without a title the header would print the route's own name ("album/[id]"), which showed while a page was
+        // still loading or could not be opened. The pages with artwork draw their name themselves.
+        title: route.name === 'podcast/[id]' ? 'Podcast' : route.name === 'more/[list]' ? ((route.params as { title?: string } | undefined)?.title ?? 'More') : '',
       })}
     />
   );
