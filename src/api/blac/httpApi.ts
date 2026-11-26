@@ -59,6 +59,8 @@ interface WireArtist {
   followerCount?: number;
   releaseCount?: number;
   following?: boolean;
+  /** Only on your own profile, and only when it is suspended. */
+  banned?: boolean;
 }
 
 interface WireUploadSummary {
@@ -141,6 +143,7 @@ const toArtist = (a: WireArtist): Artist => ({
   followerCount: a.followerCount,
   releaseCount: a.releaseCount,
   following: a.following,
+  suspended: a.banned === true ? true : undefined,
 });
 
 const toPodcast = (s: WireShow): Podcast => ({

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, View } from 'react-native';
 import * as Linking from 'expo-linking';
 import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
@@ -15,6 +15,7 @@ import { PrimaryButton } from '@/components/FormField';
 import { ScreenState } from '@/components/ScreenState';
 import { Text } from '@/components/Text';
 import { useArtistStore } from '@/store/artistStore';
+import { useDisconnectYouTube } from '@/studio/useDisconnectYouTube';
 import { radius, useTheme } from '@/theme';
 import { haptics } from '@/utils/haptics';
 
@@ -57,7 +58,9 @@ export default function YouTubeConnectScreen() {
   const router = useRouter();
   const profile = useArtistStore((s) => s.profile);
   const connection = useYouTubeConnection();
-  const [busy, setBusy] = useState<'connect' | 'disconnect' | null>(null);
+  const [connecting, setConnecting] = useState(false);
+  const disconnect = useDisconnectYouTube();
+  const busy = connecting || disconnect.busy;
   const [notice, setNotice] = useState<string | null>(null);
   const data = connection.data;
 
@@ -68,7 +71,7 @@ export default function YouTubeConnectScreen() {
 
   const connect = async () => {
     haptics.select();
-    setBusy('connect');
+    setConnecting(true);
     setNotice(null);
     try {
       const { authUrl } = await youtubeApi.startConnect();
@@ -85,35 +88,8 @@ export default function YouTubeConnectScreen() {
     } catch (e) {
       setNotice(youtubeErrorText(e));
     } finally {
-      setBusy(null);
+      setConnecting(false);
     }
-  };
-
-  const confirmDisconnect = () => {
-    haptics.warning();
-    Alert.alert(
-      'Disconnect YouTube?',
-      "Blac stops having access to your channel and forgets what it read. Songs you already imported stay on Blac. An unfinished transfer is cancelled.",
-      [
-        { text: 'Keep connected', style: 'cancel' },
-        {
-          text: 'Disconnect',
-          style: 'destructive',
-          onPress: async () => {
-            setBusy('disconnect');
-            try {
-              await youtubeApi.disconnect();
-              void queryClient.invalidateQueries({ queryKey: youtubeKeys.transfers });
-              await refreshConnection();
-            } catch (e) {
-              Alert.alert("Couldn't disconnect", youtubeErrorText(e));
-            } finally {
-              setBusy(null);
-            }
-          },
-        },
-      ],
-    );
   };
 
   // Importing songs needs an artist profile to put them under.
@@ -206,14 +182,14 @@ export default function YouTubeConnectScreen() {
               <Text variant="caption" color="textSecondary">
                 Google no longer lets Blac read this channel, which happens when access is removed in your Google account. Connect again to carry on.
               </Text>
-              <PrimaryButton label={busy === 'connect' ? 'Connecting…' : 'Connect again'} onPress={connect} disabled={busy !== null} />
+              <PrimaryButton label={connecting ? 'Connecting…' : 'Connect again'} onPress={connect} disabled={busy} />
             </>
           ) : (
-            <PrimaryButton label="Choose songs to import" onPress={() => router.push('/youtube/review')} disabled={busy !== null} />
+            <PrimaryButton label="Choose songs to import" onPress={() => router.push('/youtube/review')} disabled={busy} />
           )}
 
-          <Pressable onPress={confirmDisconnect} disabled={busy !== null} accessibilityRole="button" style={{ alignItems: 'center', padding: 6 }}>
-            {busy === 'disconnect' ? (
+          <Pressable onPress={disconnect.confirm} disabled={busy} accessibilityRole="button" style={{ alignItems: 'center', padding: 6 }}>
+            {disconnect.busy ? (
               <ActivityIndicator color={colors.danger} />
             ) : (
               <Text variant="body" color="danger">
@@ -223,7 +199,7 @@ export default function YouTubeConnectScreen() {
           </Pressable>
         </Card>
       ) : (
-        <PrimaryButton label={busy === 'connect' ? 'Connecting…' : 'Connect YouTube'} onPress={connect} disabled={busy !== null} />
+        <PrimaryButton label={connecting ? 'Connecting…' : 'Connect YouTube'} onPress={connect} disabled={busy} />
       )}
 
       <View style={{ gap: 18 }}>

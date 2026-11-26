@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, View } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BadgeCheck, ChevronRight, HardDrive, Upload } from 'lucide-react-native';
 import { useQuota, useStudioItems } from '@/api/blac/queries';
@@ -11,13 +11,15 @@ import { InsightsSummary } from '@/components/Insights';
 import { Chip } from '@/components/Chip';
 import { formatGoLive } from '@/components/DateTimeField';
 import { SettingsGroup, SettingsRow, chooseOne, useGroupedColors } from '@/components/SettingsList';
+import { SuspendedStudio } from '@/components/SuspendedStudio';
 import { TabScreen } from '@/components/TabScreen';
 import { VerifiedBadge } from '@/components/VerifiedBadge';
 import { Text } from '@/components/Text';
 import { ImportSongsRow } from '@/components/YouTubeCard';
 import { formatBytes } from '@/cache/imageCache';
 import { remainingQuotaBytes, totalQuotaBytes, type StudioItem } from '@/domain/types';
-import { useArtistStore } from '@/store/artistStore';
+import { useArtistStore, useStudioSuspended } from '@/store/artistStore';
+import { refreshArtist } from '@/studio/suspension';
 import { useUploadStore } from '@/store/uploadStore';
 import { useTheme } from '@/theme';
 import { syncAccount } from '@/auth/session';
@@ -300,7 +302,43 @@ function InProgress({ items }: { items: StudioItem[] }) {
 
 type Filter = 'all' | 'live' | 'scheduled' | 'draft';
 
+/** The tab while the artist is suspended: the title, why the Studio is off, and a way to check again. */
+function SuspendedTab() {
+  const insets = useSafeAreaInsets();
+  const g = useGroupedColors();
+  const refreshControl = usePullToRefresh(refreshArtist);
+  return (
+    <TabScreen>
+      <ScrollView
+        style={{ backgroundColor: g.page }}
+        contentInsetAdjustmentBehavior="automatic"
+        contentContainerStyle={{ paddingTop: topInset(insets.top) + 12, paddingBottom: 40, gap: 24 }}
+        refreshControl={refreshControl}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={{ paddingHorizontal: 20 }}>
+          <Text variant="display" accessibilityRole="header">
+            Studio
+          </Text>
+        </View>
+        <SuspendedStudio />
+      </ScrollView>
+    </TabScreen>
+  );
+}
+
 export default function StudioScreen() {
+  const suspended = useStudioSuspended();
+  // Ask again each time the Studio is opened, so a suspension (or its end) shows without signing in again.
+  useFocusEffect(
+    useCallback(() => {
+      void refreshArtist();
+    }, []),
+  );
+  return suspended ? <SuspendedTab /> : <StudioHome />;
+}
+
+function StudioHome() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const g = useGroupedColors();

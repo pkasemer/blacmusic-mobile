@@ -13,6 +13,7 @@ import { CREDIT_ROLES, roleName, type Credit, type CreditRole } from '@/domain/c
 import { radius, useTheme } from '@/theme';
 import { fontStyle } from '@/theme/fonts';
 import { haptics } from '@/utils/haptics';
+import { withStudioGuard } from '@/components/SuspendedStudio';
 
 interface Draft extends Credit {
   key: string;
@@ -24,7 +25,7 @@ const newKey = () => `${Date.now().toString(36)}${Math.random().toString(36).sli
  * Add the people who worked on a release or on one of its songs: a name, what they did, and whether it is for the
  * whole release or a single song. Saving replaces the list. Credits show on the release and song pages.
  */
-export default function CreditsEditorScreen() {
+function CreditsEditorScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
@@ -219,3 +220,5 @@ export default function CreditsEditorScreen() {
     </KeyboardAvoidingView>
   );
 }
+
+export default withStudioGuard(CreditsEditorScreen, { modal: true });

@@ -18,9 +18,10 @@ import { Text } from '@/components/Text';
 import { radius, useTheme } from '@/theme';
 import { haptics } from '@/utils/haptics';
 import { chooseCover } from '@/uploads/pickCover';
+import { withStudioGuard } from '@/components/SuspendedStudio';
 
 /** Edit a draft: cover art, title, genre, description and the title of each track. */
-export default function EditReleaseScreen() {
+function EditReleaseScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { colors } = useTheme();
   const router = useRouter();
@@ -230,3 +231,5 @@ function EditForm({ id, data }: { id: string; data: ReleaseDetail }) {
     </KeyboardAvoidingView>
   );
 }
+
+export default withStudioGuard(EditReleaseScreen, { modal: true });

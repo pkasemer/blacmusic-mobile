@@ -14,6 +14,15 @@ export class ApiError extends Error {
   }
 }
 
+type ApiErrorListener = (error: ApiError, path: string) => void;
+
+let errorListener: ApiErrorListener | null = null;
+
+/** Tells one listener about every call the server refused, whichever screen made it. */
+export function setApiErrorListener(listener: ApiErrorListener | null) {
+  errorListener = listener;
+}
+
 const TIMEOUT_MS = 20_000;
 /** Refresh the access token a little before it runs out, so a request never starts with a dead one. */
 const REFRESH_MARGIN_MS = 30_000;
@@ -146,7 +155,11 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
     if (token) response = await send(path, options, token);
   }
 
-  if (!response.ok) throw await toApiError(response);
+  if (!response.ok) {
+    const error = await toApiError(response);
+    errorListener?.(error, path);
+    throw error;
+  }
   if (response.status === 204) return undefined as T;
   const text = await response.text();
   return (text ? JSON.parse(text) : undefined) as T;

@@ -15,12 +15,13 @@ import { radius, useTheme } from '@/theme';
 import { pickAudioFiles, type PickedTrack } from '@/uploads/pickAudio';
 import { uploadTracks } from '@/uploads/uploadManager';
 import { haptics } from '@/utils/haptics';
+import { withStudioGuard } from '@/components/SuspendedStudio';
 
 /**
  * Add audio to a draft that already exists: one file for a single that has none, any number of files for an album.
  * Each file gets a title (editable, starting from the file name) before it goes up.
  */
-export default function AddAudioScreen() {
+function AddAudioScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
@@ -169,3 +170,5 @@ export default function AddAudioScreen() {
     </KeyboardAvoidingView>
   );
 }
+
+export default withStudioGuard(AddAudioScreen, { modal: true });

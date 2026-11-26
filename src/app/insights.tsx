@@ -3,9 +3,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Insights } from '@/components/Insights';
 import { useGroupedColors } from '@/components/SettingsList';
 import { refreshStudio, usePullToRefresh } from '@/hooks/usePullToRefresh';
+import { withStudioGuard } from '@/components/SuspendedStudio';
 
 /** Every number about the artist's music in one place: monthly listeners, plays, the main counts, top songs and releases. */
-export default function InsightsScreen() {
+function InsightsScreen() {
   const insets = useSafeAreaInsets();
   const g = useGroupedColors();
   const refreshControl = usePullToRefresh(() => refreshStudio());
@@ -22,3 +23,5 @@ export default function InsightsScreen() {
     </ScrollView>
   );
 }
+
+export default withStudioGuard(InsightsScreen);

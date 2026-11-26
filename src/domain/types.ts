@@ -20,6 +20,8 @@ export interface Artist {
   releaseCount?: number;
   /** Whether the signed-in user follows this artist. */
   following?: boolean;
+  /** The Blac team suspended this artist profile, so the Studio is off. Only ever told to its owner. */
+  suspended?: boolean;
 }
 
 export type ReleaseType = 'single' | 'ep' | 'album' | 'podcast-episode';

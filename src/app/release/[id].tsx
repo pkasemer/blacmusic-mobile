@@ -24,6 +24,7 @@ import { readable } from '@/uploads/fileSize';
 import { dismissUpload, retryUpload, uploadTracks } from '@/uploads/uploadManager';
 import { useTheme } from '@/theme';
 import { haptics } from '@/utils/haptics';
+import { withStudioGuard } from '@/components/SuspendedStudio';
 
 const SERVER_STATUS: Record<PendingUpload['status'], string> = {
   pending: 'Waiting for the file…',
@@ -127,7 +128,7 @@ function UploadRow({ job, onRetry, onCancel }: { job: UploadJob; onRetry: () => 
 }
 
 /** One release: its tracks, the files still going up or being processed, and publish / delete. */
-export default function ReleaseScreen() {
+function ReleaseScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { colors } = useTheme();
   const g = useGroupedColors();
@@ -509,3 +510,5 @@ export default function ReleaseScreen() {
     </ScrollView>
   );
 }
+
+export default withStudioGuard(ReleaseScreen);

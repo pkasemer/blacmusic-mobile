@@ -186,7 +186,7 @@ function ArtistGroup() {
       <SettingsRow
         icon={{ Icon: Mic }}
         title={profile ? 'Studio' : 'Become an artist'}
-        value={profile ? (profile.verification === 'verified' ? 'Verified' : profile.name) : undefined}
+        value={profile ? (profile.suspended ? 'Suspended' : profile.verification === 'verified' ? 'Verified' : profile.name) : undefined}
         chevron
         onPress={() => {
           haptics.select();

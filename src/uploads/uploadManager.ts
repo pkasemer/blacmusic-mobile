@@ -2,6 +2,7 @@ import { File, FileMode, UploadType } from 'expo-file-system';
 import { ApiError } from '@/api/blac/http';
 import { studioApi } from '@/api/blac/studio';
 import { queryClient } from '@/api/queryClient';
+import { useArtistStore } from '@/store/artistStore';
 import { useUploadStore, type UploadJob } from '@/store/uploadStore';
 import { haptics } from '@/utils/haptics';
 import { sizeOf } from './fileSize';
@@ -36,6 +37,10 @@ interface Handle {
   handoff: boolean;
   /** Swap the audio of this finished track (in a draft release) instead of adding a new track. */
   replaceTrackId?: string;
+  /** Aborted when the job is taken off the list: nothing more is sent for it. */
+  stop: AbortController;
+  /** The artist removed it, so an upload the server is still creating has to be cancelled there too. */
+  removed: boolean;
 }
 
 const handles = new Map<string, Handle>();
@@ -66,6 +71,7 @@ export interface TrackToUpload {
 
 /** Queues files for a release. They start right away, two at a time. */
 export function uploadTracks(releaseId: string, tracks: TrackToUpload[], genre?: string): string[] {
+  if (suspended()) return [];
   return tracks.map((t) => {
     const key = `${releaseId}:${Date.now().toString(36)}:${Math.random().toString(36).slice(2, 7)}`;
     const job: UploadJob = {
@@ -90,6 +96,8 @@ export function uploadTracks(releaseId: string, tracks: TrackToUpload[], genre?:
       afterCreate: t.afterCreate,
       handoff: t.handoff === true,
       replaceTrackId: t.replaceTrackId,
+      stop: new AbortController(),
+      removed: false,
     });
     store().add(job);
     waiting.push(key);
@@ -101,7 +109,7 @@ export function uploadTracks(releaseId: string, tracks: TrackToUpload[], genre?:
 /** Tries a failed job again. */
 export function retryUpload(key: string) {
   const job = store().jobs[key];
-  if (!job || job.state !== 'failed') return;
+  if (!job || job.state !== 'failed' || suspended()) return;
   store().patch(key, { state: 'waiting', error: null });
   waiting.push(key);
   pump();
@@ -114,11 +122,33 @@ export function dismissUpload(key: string) {
   if (handle?.uploadId && job && job.state !== 'ready' && job.state !== 'processing') {
     void studioApi.cancelUpload(handle.uploadId).catch(() => {});
   }
+  if (handle) {
+    handle.removed = true;
+    handle.stop.abort();
+  }
   handles.delete(key);
   const index = waiting.indexOf(key);
   if (index >= 0) waiting.splice(index, 1);
   store().remove(key);
 }
+
+const suspended = () => useArtistStore.getState().profile?.suspended === true;
+
+/**
+ * Stops every upload from this phone at once and takes them off the list. Used when the artist is suspended; the
+ * server clears up half-sent files by itself (it refuses Studio changes then, cancelling included).
+ */
+export function stopAllUploads() {
+  waiting.length = 0;
+  for (const handle of handles.values()) handle.stop.abort();
+  handles.clear();
+  for (const key of Object.keys(store().jobs)) store().remove(key);
+}
+
+// Nothing can be uploading unless this file is loaded, so watching from here covers every upload.
+useArtistStore.subscribe((state, previous) => {
+  if (state.profile?.suspended && !previous.profile?.suspended) stopAllUploads();
+});
 
 function pump() {
   while (running < FILE_PARALLEL && waiting.length > 0) {
@@ -152,6 +182,7 @@ async function runJob(key: string) {
   const job = store().jobs[key];
   if (!job) return;
   store().patch(key, { state: 'uploading', error: null });
+  const stopped = () => handle.stop.signal.aborted;
 
   try {
     if (!handle.uploadId) {
@@ -170,12 +201,17 @@ async function runJob(key: string) {
           });
       // The old track is gone now; if this upload has to start over, it starts as a plain new upload.
       handle.replaceTrackId = undefined;
+      if (stopped()) {
+        if (handle.removed) void studioApi.cancelUpload(created.id).catch(() => {});
+        return;
+      }
       handle.uploadId = created.id;
       store().patch(key, { uploadId: created.id });
       await handle.afterCreate?.(created.id);
       refreshStudio();
+      if (stopped()) return;
       if (created.target.type === 'single') {
-        await sendSingle(key, handle.file, created.target.url);
+        await sendSingle(key, handle, created.target.url);
       } else {
         handle.multipart = { partSize: created.target.partSize, partCount: created.target.partCount };
         await sendParts(key, handle, created.target.parts);
@@ -201,7 +237,9 @@ async function runJob(key: string) {
       return runJob(key);
     }
 
+    if (stopped()) return;
     await finish(key, handle);
+    if (stopped()) return;
     if (handle.handoff) {
       store().patch(key, { state: 'ready', progress: 1 });
       return;
@@ -209,6 +247,8 @@ async function runJob(key: string) {
     store().patch(key, { state: 'processing', progress: 1 });
     await waitUntilReady(key, handle.uploadId as string);
   } catch (error) {
+    // Stopping makes the transfer fail on purpose: that is not something to report.
+    if (stopped()) return;
     store().patch(key, { state: 'failed', error: messageFor(error) });
     haptics.error();
   } finally {
@@ -216,8 +256,9 @@ async function runJob(key: string) {
   }
 }
 
-async function sendSingle(key: string, file: File, url: string) {
-  const result = await file.upload(url, {
+async function sendSingle(key: string, handle: Handle, url: string) {
+  const result = await handle.file.upload(url, {
+    signal: handle.stop.signal,
     httpMethod: 'PUT',
     uploadType: UploadType.BINARY_CONTENT,
     sessionType: 'foreground',
@@ -230,7 +271,7 @@ async function sendSingle(key: string, file: File, url: string) {
   if (result.status < 200 || result.status >= 300) throw new Error('The file could not be sent. Check your connection.');
 }
 
-async function putPart(file: File, start: number, length: number, url: string) {
+async function putPart(file: File, start: number, length: number, url: string, signal: AbortSignal) {
   const handle = file.open(FileMode.ReadOnly);
   let bytes: Uint8Array;
   try {
@@ -241,10 +282,11 @@ async function putPart(file: File, start: number, length: number, url: string) {
   }
   for (let attempt = 1; ; attempt++) {
     try {
-      const response = await fetch(url, { method: 'PUT', body: bytes as unknown as BodyInit });
+      const response = await fetch(url, { method: 'PUT', body: bytes as unknown as BodyInit, signal });
       if (response.ok) return;
       throw new Error(`part rejected (${response.status})`);
-    } catch {
+    } catch (error) {
+      if (signal.aborted) throw error;
       if (attempt >= PART_ATTEMPTS) throw new Error('A part of the file could not be sent. Check your connection and try again.');
       await sleep(800 * attempt);
     }
@@ -260,10 +302,10 @@ async function sendParts(key: string, handle: Handle, parts: { number: number; u
   const queue = [...parts];
 
   const worker = async () => {
-    for (let part = queue.shift(); part; part = queue.shift()) {
+    for (let part = queue.shift(); part && !handle.stop.signal.aborted; part = queue.shift()) {
       const start = (part.number - 1) * partSize;
       const length = Math.min(partSize, total - start);
-      await putPart(handle.file, start, length, part.url);
+      await putPart(handle.file, start, length, part.url, handle.stop.signal);
       sentBytes += length;
       store().patch(key, { progress: Math.min(0.99, alreadySent + sentBytes / Math.max(1, total)) });
     }
@@ -276,6 +318,7 @@ async function finish(key: string, handle: Handle) {
   const uploadId = handle.uploadId as string;
   let tries = 0;
   for (let round = 0; ; round++) {
+    if (handle.stop.signal.aborted) return;
     try {
       await studioApi.completeUpload(uploadId);
       return;
@@ -315,6 +358,7 @@ async function waitUntilReady(key: string, uploadId: string) {
       if (++missedChecks >= 6) throw error;
       continue;
     }
+    if (!store().jobs[key]) return;
     if (status.status === 'ready') {
       store().patch(key, { state: 'ready' });
       haptics.success();

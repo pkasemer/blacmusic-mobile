@@ -9,12 +9,13 @@ import { Text } from '@/components/Text';
 import { radius, useTheme } from '@/theme';
 import { fontStyle } from '@/theme/fonts';
 import { haptics } from '@/utils/haptics';
+import { withStudioGuard } from '@/components/SuspendedStudio';
 
 /**
  * Add, change or remove the lyrics of one of your tracks. Plain text shows as scrolling lyrics; text with time stamps
  * like [01:23.45] (the common LRC format) makes timed lyrics that follow the song and light up line by line.
  */
-export default function LyricsEditorScreen() {
+function LyricsEditorScreen() {
   const { id, title } = useLocalSearchParams<{ id: string; title?: string }>();
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
@@ -158,3 +159,5 @@ export default function LyricsEditorScreen() {
     </KeyboardAvoidingView>
   );
 }
+
+export default withStudioGuard(LyricsEditorScreen, { modal: true });

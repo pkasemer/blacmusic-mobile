@@ -2,9 +2,10 @@ import { Pressable } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { X } from 'lucide-react-native';
 import { useTheme } from '@/theme';
+import { withStudioGuard } from '@/components/SuspendedStudio';
 
 /** The YouTube import flow: connect, choose songs, then follow the transfer. One modal with its own back button. */
-export default function YouTubeLayout() {
+function YouTubeLayout() {
   const { colors } = useTheme();
   const router = useRouter();
   return (
@@ -30,3 +31,5 @@ export default function YouTubeLayout() {
     </Stack>
   );
 }
+
+export default withStudioGuard(YouTubeLayout, { modal: true });

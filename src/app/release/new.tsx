@@ -19,9 +19,10 @@ import { PickedTrackCard } from '@/components/PickedTrackCard';
 import { pickAudioFiles, type PickedTrack } from '@/uploads/pickAudio';
 import { chooseCover } from '@/uploads/pickCover';
 import { uploadTracks } from '@/uploads/uploadManager';
+import { withStudioGuard } from '@/components/SuspendedStudio';
 
 /** Create a release (single or album): cover, details and audio files. Files upload in the background. */
-export default function NewReleaseScreen() {
+function NewReleaseScreen() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -238,3 +239,5 @@ export default function NewReleaseScreen() {
     </KeyboardAvoidingView>
   );
 }
+
+export default withStudioGuard(NewReleaseScreen, { modal: true });
