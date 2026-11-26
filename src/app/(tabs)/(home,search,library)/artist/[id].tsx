@@ -19,6 +19,7 @@ import { PlayAllBar } from '@/components/PlayAllBar';
 import { ScreenState } from '@/components/ScreenState';
 import { Text } from '@/components/Text';
 import { TrackRow } from '@/components/TrackRow';
+import { useTrackMenu } from '@/components/TrackActionSheet';
 import { TabScreen } from '@/components/TabScreen';
 import { radius, useTheme } from '@/theme';
 import { formatCount } from '@/utils/format';
@@ -79,6 +80,7 @@ export default function ArtistScreen() {
   const cover = useHeroCoverSize(260);
   const [showAll, setShowAll] = useState(false);
   const ownArtistId = useArtistStore((s) => s.profile?.id);
+  const menu = useTrackMenu();
 
   if (artist.isPending) {
     return (
@@ -146,7 +148,7 @@ export default function ArtistScreen() {
             </Text>
             <View>
               {visible.map((track, i) => (
-                <TrackRow key={track.id} item={track} index={i + 1} onPress={() => playQueue(tracks, i, { source: { type: 'artist', id: data.id, name: data.name } })} separator={i < visible.length - 1} />
+                <TrackRow key={track.id} item={track} index={i + 1} onPress={() => playQueue(tracks, i, { source: { type: 'artist', id: data.id, name: data.name } })} onMore={() => menu.open(track)} separator={i < visible.length - 1} />
               ))}
             </View>
             {tracks.length > POPULAR_SHOWN ? (
@@ -176,6 +178,7 @@ export default function ArtistScreen() {
           </View>
         ) : null}
       </Animated.ScrollView>
+      {menu.sheet}
     </TabScreen>
   );
 }

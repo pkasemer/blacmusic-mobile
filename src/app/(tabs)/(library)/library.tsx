@@ -15,6 +15,7 @@ import { ScreenState } from '@/components/ScreenState';
 import { TabScreen } from '@/components/TabScreen';
 import { Text } from '@/components/Text';
 import { TrackRow } from '@/components/TrackRow';
+import { useTrackMenu } from '@/components/TrackActionSheet';
 import type { DownloadItem, Playable, Playlist } from '@/domain/types';
 import { cancelDownload, removeAllDownloads, retryDownload } from '@/offline/downloads';
 import { useDownloadStore } from '@/store/downloadStore';
@@ -117,7 +118,7 @@ function PlaylistRow({ playlist, onPress }: { playlist: Playlist; onPress: () =>
   );
 }
 
-function DownloadRow({ entry, onPlay }: { entry: DownloadItem; onPlay: () => void }) {
+function DownloadRow({ entry, onPlay, onMore }: { entry: DownloadItem; onPlay: () => void; onMore?: () => void }) {
   const { colors } = useTheme();
   const status =
     entry.state === 'done'
@@ -132,6 +133,7 @@ function DownloadRow({ entry, onPlay }: { entry: DownloadItem; onPlay: () => voi
       <View style={{ flex: 1 }}>
         <TrackRow
           item={entry.item}
+          onMore={onMore}
           detail={status}
           detailTone={entry.state === 'failed' ? 'danger' : 'normal'}
           onPress={() => {
@@ -145,7 +147,7 @@ function DownloadRow({ entry, onPlay }: { entry: DownloadItem; onPlay: () => voi
         hitSlop={10}
         accessibilityRole="button"
         accessibilityLabel={`Remove download ${entry.item.title}`}
-        style={{ position: 'absolute', right: 20, top: 0, bottom: 0, justifyContent: 'center', backgroundColor: colors.bg, paddingLeft: 10 }}
+        style={{ alignSelf: 'stretch', justifyContent: 'center', paddingRight: 20 }}
       >
         <X size={18} color={colors.textTertiary} />
       </Pressable>
@@ -164,6 +166,9 @@ export default function LibraryScreen() {
   const favouriteIds = useFavouritesStore((s) => s.ids);
   const favourites = usePlayables(favouriteIds);
   const downloads = useDownloadStore((s) => s.items);
+  const menu = useTrackMenu();
+  /** The song menu (with "Add to queue") for a row; podcast episodes have none. */
+  const trackMenuFor = (item: Playable) => (item.kind === 'track' ? () => menu.open(item) : undefined);
 
   const favouriteItems = useMemo(() => {
     const byId = new Map((favourites.data ?? []).map((p) => [p.id, p]));
@@ -280,6 +285,7 @@ export default function LibraryScreen() {
         onClose={() => setCreating(false)}
         onDone={(created) => router.push({ pathname: '/playlist/[id]', params: { id: created.id } })}
       />
+      {menu.sheet}
       {segment === 'playlists' ? (
         <FlatList
           data={myPlaylists.data ?? []}
@@ -306,7 +312,13 @@ export default function LibraryScreen() {
         <FlatList
           data={favouriteItems}
           keyExtractor={(item) => item.id}
-          renderItem={({ item, index }) => <TrackRow item={item} onPress={() => playQueue(favouriteItems, index, { source: { type: 'favourites' } })} />}
+          renderItem={({ item, index }) => (
+            <TrackRow
+              item={item}
+              onPress={() => playQueue(favouriteItems, index, { source: { type: 'favourites' } })}
+              onMore={trackMenuFor(item)}
+            />
+          )}
           ListHeaderComponent={header}
           ListEmptyComponent={
             favourites.isPending && favouriteIds.length > 0 ? undefined : (
@@ -325,6 +337,7 @@ export default function LibraryScreen() {
           renderItem={({ item }) => (
             <DownloadRow
               entry={item}
+              onMore={trackMenuFor(item.item)}
               onPlay={() =>
                 playQueue(
                   playableDownloads,

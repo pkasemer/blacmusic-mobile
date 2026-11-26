@@ -3,11 +3,11 @@ import { ActivityIndicator, Pressable, View } from 'react-native';
 import Animated from 'react-native-reanimated';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ChevronRight, Disc3, ListPlus, Play, UserRound } from 'lucide-react-native';
+import { ChevronRight, Disc3, ListEnd, ListPlus, Play, UserRound } from 'lucide-react-native';
 import { useArtistTracks, useTrack } from '@/api/blac/queries';
 import { useTrackCredits } from '@/api/blac/credits';
 import { CreditsSection } from '@/components/CreditsSection';
-import { playQueue } from '@/audio/music/musicEngine';
+import { addToQueue, playQueue } from '@/audio/music/musicEngine';
 import { formatTime } from '@/audio/music/queue';
 import { Artwork } from '@/components/Artwork';
 import { Card } from '@/components/Card';
@@ -21,6 +21,7 @@ import { ScreenState } from '@/components/ScreenState';
 import { ArtistName } from '@/components/ArtistName';
 import { Text } from '@/components/Text';
 import { TrackRow } from '@/components/TrackRow';
+import { useTrackMenu } from '@/components/TrackActionSheet';
 import { TabScreen } from '@/components/TabScreen';
 import { useTheme } from '@/theme';
 import { formatDate } from '@/utils/format';
@@ -92,6 +93,7 @@ export default function TrackScreen() {
   const cover = useHeroCoverSize();
   const [adding, setAdding] = useState(false);
   const credits = useTrackCredits(id);
+  const menu = useTrackMenu();
 
   if (query.isPending) {
     return (
@@ -175,8 +177,13 @@ export default function TrackScreen() {
           <FavouriteButton itemId={track.id} variant="box" />
         </View>
 
-        {/* Add to a playlist, save for offline, share */}
+        {/* Add to the queue or a playlist, save for offline, share */}
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 16, marginTop: -8 }}>
+          {track.preview ? null : (
+            <BarButton label="Add to queue" onPress={() => addToQueue(track)}>
+              <ListEnd size={20} color={colors.text} />
+            </BarButton>
+          )}
           {track.preview ? null : (
             <BarButton label="Add to playlist" onPress={() => setAdding(true)}>
               <ListPlus size={20} color={colors.text} />
@@ -220,13 +227,14 @@ export default function TrackScreen() {
             </Text>
             <View>
               {others.slice(0, 5).map((t, i, list) => (
-                <TrackRow key={t.id} item={t} onPress={() => playQueue(others, i, { source: { type: 'artist', id: track.artistId, name: track.artistName } })} separator={i < list.length - 1} />
+                <TrackRow key={t.id} item={t} onPress={() => playQueue(others, i, { source: { type: 'artist', id: track.artistId, name: track.artistName } })} onMore={() => menu.open(t)} separator={i < list.length - 1} />
               ))}
             </View>
           </View>
         ) : null}
       </Animated.ScrollView>
       <AddToPlaylistSheet track={adding ? track : null} onClose={() => setAdding(false)} />
+      {menu.sheet}
     </TabScreen>
   );
 }

@@ -4,12 +4,15 @@ import * as Linking from 'expo-linking';
 import { useRouter } from 'expo-router';
 import Animated, { FadeIn, FadeOut, SlideInDown, SlideOutDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { CircleCheck, Download, Heart, ListMinus, ListPlus, Radio, Share2, UserRound } from 'lucide-react-native';
+import { CircleCheck, Download, Heart, ListEnd, ListMinus, ListPlus, Radio, Share2, UserRound } from 'lucide-react-native';
+import { addToQueue } from '@/audio/music/musicEngine';
+import { queuedAhead } from '@/audio/music/queue';
 import { startRadio } from '@/audio/music/radio';
 import type { Track } from '@/domain/types';
 import { cancelDownload, downloadBlockReason, downloadItem } from '@/offline/downloads';
 import { useDownload } from '@/store/downloadStore';
 import { useFavouritesStore, useIsFavourite } from '@/store/favouritesStore';
+import { useMusicStore } from '@/store/musicStore';
 import { radius, useTheme } from '@/theme';
 import { haptics } from '@/utils/haptics';
 import { Artwork } from './Artwork';
@@ -64,8 +67,8 @@ function ActionRow({
 }
 
 /**
- * The "more" menu for one song, as a sheet that slides up from the bottom: favourite, download, share, go to the
- * artist and start a radio from it. `track` is the song to show it for, or `null` for closed.
+ * The "more" menu for one song, as a sheet that slides up from the bottom: add to the queue, favourite, download,
+ * share, go to the artist and start a radio from it. `track` is the song to show it for, or `null` for closed.
  */
 function TrackActionSheet({
   track,
@@ -87,6 +90,8 @@ function TrackActionSheet({
   const favourite = useIsFavourite(id);
   const toggleFavourite = useFavouritesStore((s) => s.toggle);
   const download = useDownload(id);
+  /** How many queued songs would play before this one. `null` when nothing is playing. */
+  const queuedBefore = useMusicStore((s) => (s.active ? queuedAhead(s.queue, s.index, s.waiting).length : null));
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   /** Slides the sheet away, then closes it and runs `after` (for things that open another screen or sheet). */
@@ -105,6 +110,11 @@ function TrackActionSheet({
   const blocked = downloadBlockReason(track);
   const downloaded = download?.state === 'done';
   const downloading = download?.state === 'queued' || download?.state === 'downloading';
+
+  const onQueue = () => {
+    addToQueue(track);
+    dismiss();
+  };
 
   const onFavourite = () => {
     const added = toggleFavourite(track.id);
@@ -198,6 +208,18 @@ function TrackActionSheet({
             </View>
             <View style={{ height: 1, backgroundColor: colors.border, marginBottom: 6 }} />
 
+            <ActionRow
+              icon={<ListEnd size={22} color={iconColor} />}
+              label="Add to queue"
+              detail={
+                queuedBefore === null
+                  ? 'Starts playing now'
+                  : queuedBefore === 0
+                    ? 'Plays after this song'
+                    : `Plays after the ${queuedBefore === 1 ? 'song' : `${queuedBefore} songs`} you already queued`
+              }
+              onPress={onQueue}
+            />
             <ActionRow
               icon={<Heart size={22} color={favourite ? colors.accent : iconColor} fill={favourite ? colors.accent : 'none'} />}
               label={favourite ? 'Remove from likes' : 'Add to likes'}

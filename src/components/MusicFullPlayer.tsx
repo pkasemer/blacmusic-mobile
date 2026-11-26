@@ -116,10 +116,11 @@ function Transport({ label, onPress, disabled, children }: { label: string; onPr
   );
 }
 
-/** The upcoming queue, with the playing item highlighted. Tap to jump, X to remove an upcoming item. */
+/** The queue, with the playing item highlighted and the songs you queued marked. Tap to jump, X to remove an upcoming item. */
 function QueueList({ ink }: { ink: Ink }) {
   const queue = useMusicStore((s) => s.queue);
   const index = useMusicStore((s) => s.index);
+  const waiting = useMusicStore((s) => s.waiting);
 
   return (
     <FlatList
@@ -150,6 +151,11 @@ function QueueList({ ink }: { ink: Ink }) {
                 <ArtistName name={subtitleOf(item)} verified={item.kind === 'track' ? item.artistVerified : false} />
               </View>
             </Pressable>
+            {i > index && waiting.has(item) ? (
+              <Text variant="caption" style={{ color: ink.tertiary }}>
+                Queued
+              </Text>
+            ) : null}
             {i > index ? (
               <Pressable onPress={() => removeFromQueue(i)} hitSlop={10} accessibilityRole="button" accessibilityLabel={`Remove ${item.title} from the queue`}>
                 <X size={18} color={ink.tertiary} />

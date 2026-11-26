@@ -11,8 +11,10 @@ import type { PlaybackSource } from '@/audio/music/source';
 interface MusicState {
   /** Play order, including items already played. Already shuffled when `shuffle` is on. */
   queue: Playable[];
-  /** The order before shuffling, used when shuffle is switched off. */
+  /** The order before shuffling, used when shuffle is switched off. Songs added to the queue are not in it. */
   originalQueue: Playable[];
+  /** Songs added with "Add to queue" that have not had their turn yet. These are the entries in `queue` themselves. */
+  waiting: ReadonlySet<Playable>;
   index: number;
   shuffle: boolean;
   repeat: RepeatMode;
@@ -31,6 +33,7 @@ interface MusicState {
 const EMPTY = {
   queue: [] as Playable[],
   originalQueue: [] as Playable[],
+  waiting: new Set<Playable>() as ReadonlySet<Playable>,
   index: 0,
   active: false,
   playing: false,
