@@ -181,7 +181,7 @@ export default function ArtistScreen() {
 
         <AlbumShelf title="Popular releases" albums={byPopularity(albums.data, tracks)} more={{ list: 'artist-releases', ref: data.id }} />
 
-        <ArtistShelf title="Related artists" artists={related.data} more={{ list: 'related-artists', ref: data.id }} />
+        <ArtistShelf title="Fans also like" artists={related.data} more={{ list: 'related-artists', ref: data.id }} />
 
         {data.bio ? (
           <View style={{ gap: 12, paddingHorizontal: 20 }}>
