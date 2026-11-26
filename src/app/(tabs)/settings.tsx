@@ -48,6 +48,7 @@ import {
 import { refreshStudio, usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { chooseAvatar } from '@/uploads/pickCover';
 import { useArtistStore } from '@/store/artistStore';
+import { refreshArtist } from '@/studio/refreshArtist';
 import { useAuthStore } from '@/store/authStore';
 import { useHistoryStore } from '@/store/historyStore';
 import { useSettingsStore, type ThemeMode } from '@/store/settingsStore';
@@ -181,6 +182,12 @@ function ProfileCard() {
 function ArtistGroup() {
   const router = useRouter();
   const profile = useArtistStore((s) => s.profile);
+  // The team can give or take away an artist profile, so ask again each time this screen is shown.
+  useFocusEffect(
+    useCallback(() => {
+      void refreshArtist();
+    }, []),
+  );
   return (
     <SettingsGroup footer={profile ? undefined : 'Create an artist profile to upload songs and podcasts. 10 GB of storage is free.'}>
       <SettingsRow

@@ -4,8 +4,8 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ShieldAlert, X } from 'lucide-react-native';
 import { useYouTubeConnection } from '@/api/blac/youtubeQueries';
-import { useStudioSuspended } from '@/store/artistStore';
-import { refreshArtist } from '@/studio/suspension';
+import { useIsArtist, useStudioSuspended } from '@/store/artistStore';
+import { refreshArtist } from '@/studio/refreshArtist';
 import { useDisconnectYouTube } from '@/studio/useDisconnectYouTube';
 import { useTheme } from '@/theme';
 import { haptics } from '@/utils/haptics';
@@ -69,8 +69,22 @@ export function SuspendedStudio() {
   );
 }
 
-/** The suspended notice as a whole screen. A modal has no header of its own here, so it gets a close button. */
-function SuspendedScreen({ modal }: { modal: boolean }) {
+/** What an open Studio screen shows when the artist profile has just been taken off this account. */
+function NoLongerArtist() {
+  return (
+    <View style={{ gap: 12, paddingHorizontal: 32, paddingTop: 24, alignItems: 'center' }}>
+      <Text variant="title" accessibilityRole="header" style={{ textAlign: 'center' }}>
+        No artist profile
+      </Text>
+      <Text variant="body" color="textSecondary" style={{ textAlign: 'center' }}>
+        Your account no longer has an artist profile, so this part of the Studio is closed. The rest of your account works as before.
+      </Text>
+    </View>
+  );
+}
+
+/** A notice as a whole screen. A modal has no header of its own here, so it gets a close button. */
+function NoticeScreen({ modal, children }: { modal: boolean; children: React.ReactNode }) {
   const { colors } = useTheme();
   const g = useGroupedColors();
   const insets = useSafeAreaInsets();
@@ -95,19 +109,24 @@ function SuspendedScreen({ modal }: { modal: boolean }) {
           <X size={22} color={colors.textSecondary} />
         </Pressable>
       ) : null}
-      <SuspendedStudio />
+      {children}
     </ScrollView>
   );
 }
 
 /**
- * Wraps a Studio screen: while the artist is suspended it shows the notice instead, even if the screen was already
- * open. Opening the screen also asks the server again.
+ * Wraps a Studio screen: while the artist is suspended, or once the artist is taken off the account, it shows a notice
+ * instead, even if the screen was already open. Opening the screen also asks the server again.
  */
 export function StudioGuard({ children, modal = false }: { children: React.ReactNode; modal?: boolean }) {
   const suspended = useStudioSuspended();
+  const isArtist = useIsArtist();
+  // Some import screens may be opened without a profile (they offer to create one), so only losing it counts.
+  const [openedAsArtist] = useState(isArtist);
   useEffect(() => void refreshArtist(), []);
-  return suspended ? <SuspendedScreen modal={modal} /> : children;
+
+  if (!suspended && !(openedAsArtist && !isArtist)) return children;
+  return <NoticeScreen modal={modal}>{suspended ? <SuspendedStudio /> : <NoLongerArtist />}</NoticeScreen>;
 }
 
 /** `export default withStudioGuard(Screen)` */

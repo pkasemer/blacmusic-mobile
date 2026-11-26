@@ -7,6 +7,7 @@ import { syncAccount } from '@/auth/session';
 import { Text } from '@/components/Text';
 import { useArtistStore } from '@/store/artistStore';
 import { useAuthStore } from '@/store/authStore';
+import { refreshArtist } from '@/studio/refreshArtist';
 import { radius, useTheme } from '@/theme';
 import { fontStyle } from '@/theme/fonts';
 import { haptics } from '@/utils/haptics';
@@ -28,6 +29,17 @@ export default function BecomeArtistScreen() {
   useEffect(() => {
     if (needsEmailCheck) router.replace('/verify-email');
   }, [needsEmailCheck, router]);
+
+  // Never offer to create a profile on an old answer: the team may already have given this account one.
+  useEffect(() => {
+    let open = true;
+    void refreshArtist().then(() => {
+      if (open && useArtistStore.getState().profile) router.replace('/(tabs)/studio');
+    });
+    return () => {
+      open = false;
+    };
+  }, [router]);
 
   const submit = async () => {
     if (!canSubmit) return;

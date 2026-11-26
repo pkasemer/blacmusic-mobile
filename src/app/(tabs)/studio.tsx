@@ -19,7 +19,7 @@ import { ImportSongsRow } from '@/components/YouTubeCard';
 import { formatBytes } from '@/cache/imageCache';
 import { remainingQuotaBytes, totalQuotaBytes, type StudioItem } from '@/domain/types';
 import { useArtistStore, useStudioSuspended } from '@/store/artistStore';
-import { refreshArtist } from '@/studio/suspension';
+import { refreshArtist } from '@/studio/refreshArtist';
 import { useUploadStore } from '@/store/uploadStore';
 import { useTheme } from '@/theme';
 import { syncAccount } from '@/auth/session';

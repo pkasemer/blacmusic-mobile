@@ -7,8 +7,9 @@ let refreshing: Promise<void> | null = null;
 let askAgain = false;
 
 /**
- * Fetches the artist profile again, which is how the app learns that it was suspended or let back in. Safe to call at
- * any time: calls made together share one fetch, and a failed fetch keeps what is already known.
+ * Fetches the artist profile again, which is how the app learns that it was suspended or let back in, or that the
+ * team gave this account an artist or took it away. Safe to call at any time: calls made together share one fetch,
+ * and a failed fetch keeps what is already known.
  */
 export function refreshArtist(): Promise<void> {
   if (refreshing) {

@@ -19,7 +19,7 @@ import { useNotifications } from '@/notifications/useNotifications';
 import { useReportPlays } from '@/stats/useReportPlays';
 import { useSaveProgress } from '@/audio/music/useSaveProgress';
 import { useRemoveGone } from '@/offline/removeGone';
-import { useSuspensionWatch } from '@/studio/useSuspensionWatch';
+import { useArtistWatch } from '@/studio/useArtistWatch';
 import { MusicFullPlayer } from '@/components/MusicFullPlayer';
 import { USES_BACKEND } from '@/api/blac';
 import { REQUIRE_EMAIL_CODE } from '@/api/blac/config';
@@ -82,8 +82,8 @@ function AppShell() {
   useSaveProgress();
   // Take off the phone what is no longer on Blac (a banned artist's downloads, recent searches, queued songs).
   useRemoveGone(USES_BACKEND && hasSession && !needsCode);
-  // Notice an artist profile being suspended (the Studio turns off; the account stays signed in).
-  useSuspensionWatch(USES_BACKEND && hasSession && !needsCode);
+  // Keep up with the artist profile: suspended, given or taken away. None of these signs anyone out.
+  useArtistWatch(USES_BACKEND && hasSession && !needsCode);
   useNetworkWatcher();
   useAudioMode();
   useSleepTimerEngine();

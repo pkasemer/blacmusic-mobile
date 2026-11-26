@@ -31,7 +31,7 @@ function DeleteForm() {
     Alert.alert('Delete your account for good?', 'This cannot be undone.', [
       { text: 'Keep my account', style: 'cancel' },
       {
-        text: 'Delete everything',
+        text: 'Delete account',
         style: 'destructive',
         onPress: async () => {
           setBusy(true);
@@ -54,8 +54,8 @@ function DeleteForm() {
     <View style={{ paddingHorizontal: 20, gap: 14 }}>
       <Text variant="title">Delete your account</Text>
       <Text variant="body" color="textSecondary">
-        This removes your account and everything in it: your playlists, likes, listening history and downloads. If you are an artist, it also removes your
-        artist profile, your releases and songs. Apple or Google sign-in is not affected.
+        This removes your account and everything in it: your playlists, likes, listening history and downloads. If you are an artist, the music you uploaded
+        is deleted too. An artist profile the Blac team gave you goes back to Blac, with the songs the team added. Apple or Google sign-in is not affected.
       </Text>
 
       {needsPassword ? (

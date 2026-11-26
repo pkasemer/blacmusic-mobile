@@ -135,8 +135,8 @@ export function dismissUpload(key: string) {
 const suspended = () => useArtistStore.getState().profile?.suspended === true;
 
 /**
- * Stops every upload from this phone at once and takes them off the list. Used when the artist is suspended; the
- * server clears up half-sent files by itself (it refuses Studio changes then, cancelling included).
+ * Stops every upload from this phone at once and takes them off the list. Used when the artist is suspended or is no
+ * longer this account's; the server clears up half-sent files by itself (it refuses cancelling then).
  */
 export function stopAllUploads() {
   waiting.length = 0;
@@ -147,7 +147,8 @@ export function stopAllUploads() {
 
 // Nothing can be uploading unless this file is loaded, so watching from here covers every upload.
 useArtistStore.subscribe((state, previous) => {
-  if (state.profile?.suspended && !previous.profile?.suspended) stopAllUploads();
+  const gone = previous.profile !== null && state.profile?.id !== previous.profile.id;
+  if (gone || (state.profile?.suspended && !previous.profile?.suspended)) stopAllUploads();
 });
 
 function pump() {
