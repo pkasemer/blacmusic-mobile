@@ -201,11 +201,13 @@ export default function SearchScreen() {
         <>
           <RecentSection onOpen={(kind, id) => open(kind, id)} />
           <AlbumShelf title="Featured releases" albums={featured.data} more={{ list: 'featured-albums' }} />
-          <View style={{ paddingHorizontal: 20, paddingTop: 4 }}>
-            <Text variant="title" accessibilityRole="header">
-              Trending now
-            </Text>
-          </View>
+          {trackList.length > 0 ? (
+            <View style={{ paddingHorizontal: 20, paddingTop: 4 }}>
+              <Text variant="title" accessibilityRole="header">
+                Trending now
+              </Text>
+            </View>
+          ) : null}
         </>
       ) : (
         <View style={{ paddingHorizontal: 20 }}>
@@ -310,7 +312,7 @@ export default function SearchScreen() {
                 actionLabel="Retry"
                 onAction={() => void firstError.refetch()}
               />
-            ) : (
+            ) : !searching ? null : (
               <ScreenState kind="empty" title="No results" message="Try a different song, artist, album or playlist name." />
             )}
           </Pressable>

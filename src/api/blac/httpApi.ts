@@ -282,6 +282,19 @@ async function browseTracks(sort: 'new' | 'popular', limit: number): Promise<Tra
   return data.tracks.map(toTrack);
 }
 
+/**
+ * The albums and EPs the Blac team features, in the team's order; empty when they feature none. A server that cannot
+ * feature releases yet refuses the request, and its popular albums stand in.
+ */
+async function featuredReleases(page: { limit: number; offset?: number }): Promise<{ releases: WireRelease[] }> {
+  try {
+    return await apiRequest('/v1/browse/albums', { query: { sort: 'featured', ...page } });
+  } catch (error) {
+    if (!(error instanceof ApiError) || error.status !== 400) throw error;
+    return apiRequest('/v1/browse/albums', { query: { sort: 'popular', type: 'album', ...page } });
+  }
+}
+
 /** The server has no "new from artists you follow" list, so it is put together from each followed artist's newest. */
 async function followedReleases(perArtist: number): Promise<Album[]> {
   const { artists } = await apiRequest<{ artists: { id: string; name: string; verified?: boolean }[] }>('/v1/me/library/artists', {
@@ -303,13 +316,13 @@ async function followedReleases(perArtist: number): Promise<Album[]> {
 
 export const httpApi: BlacApi = {
   // ---- Listening ----
+  // Only what is really trending: nothing else stands in, so a server that cannot tell (400) gives an empty list.
   getTrending: async () => {
-    // The songs topping the chart. A server without a chart answers "not found": its popular songs stand in.
     try {
-      return (await apiRequest<{ tracks: WireTrack[] }>('/v1/browse/charts', { query: { limit: 6 } })).tracks.map(toTrack);
+      return (await apiRequest<{ tracks: WireTrack[] }>('/v1/browse/tracks', { query: { sort: 'trending', limit: 6 } })).tracks.map(toTrack);
     } catch (error) {
-      if (!(error instanceof ApiError) || error.status !== 404) throw error;
-      return browseTracks('popular', PAGE);
+      if (error instanceof ApiError && error.status === 400) return [];
+      throw error;
     }
   },
   getNewReleases: () => browseTracks('new', PAGE),
@@ -362,9 +375,7 @@ export const httpApi: BlacApi = {
 
   getAlbums: async () => {
     try {
-      const data = await apiRequest<{ releases: WireRelease[] }>('/v1/browse/albums', {
-        query: { sort: 'popular', type: 'album', limit: PAGE },
-      });
+      const data = await featuredReleases({ limit: PAGE });
       return data.releases.map((r) => toAlbum(r));
     } catch (error) {
       if (!isNotFound(error)) throw error;
@@ -635,7 +646,7 @@ export const httpApi: BlacApi = {
 
     switch (list) {
       case 'featured-albums':
-        return albums('/v1/browse/albums', { sort: 'popular', type: 'album', ...page });
+        return paged((await featuredReleases(page)).releases, (r) => ({ kind: 'album', album: toAlbum(r) }));
       case 'latest-releases':
         return albums('/v1/browse/albums', { sort: 'new', type: 'all', ...page });
       case 'artist-releases':
