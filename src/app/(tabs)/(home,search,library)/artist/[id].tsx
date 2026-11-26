@@ -7,7 +7,7 @@ import { VerifiedBadge } from '@/components/VerifiedBadge';
 import { blacApi } from '@/api/blac';
 import { musicKeys, useArtist, useArtistAlbums, useArtistTracks, useRelatedArtists } from '@/api/blac/queries';
 import { queryClient } from '@/api/queryClient';
-import type { Artist } from '@/domain/types';
+import type { Album, Artist, Track } from '@/domain/types';
 import { useArtistStore } from '@/store/artistStore';
 import { haptics } from '@/utils/haptics';
 import { playQueue } from '@/audio/music/musicEngine';
@@ -28,6 +28,18 @@ import { useTheme } from '@/theme';
 import { formatCount } from '@/utils/format';
 
 const POPULAR_SHOWN = 5;
+
+/**
+ * The releases with the most popular songs first. The server lists releases newest first but ranks songs by how often
+ * they are saved, so a release takes the place of its best song; the others follow, newest first.
+ */
+function byPopularity(albums: Album[] | undefined, popular: Track[]) {
+  const rank = (a: Album) => {
+    const place = popular.findIndex((t) => t.releaseId === a.id);
+    return place < 0 ? popular.length : place;
+  };
+  return albums ? [...albums].sort((a, b) => rank(a) - rank(b)) : albums;
+}
 
 /** Follow / Following. The change shows at once; if the server refuses, it goes back and says so. */
 function FollowButton({ artist }: { artist: Artist }) {
@@ -164,7 +176,7 @@ export default function ArtistScreen() {
 
         <LatestRelease albums={albums.data} />
 
-        <AlbumShelf title="Releases" albums={albums.data} />
+        <AlbumShelf title="Popular releases" albums={byPopularity(albums.data, tracks)} />
 
         <ArtistShelf title="Related artists" artists={related.data} />
 
