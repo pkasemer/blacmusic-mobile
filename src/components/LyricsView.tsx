@@ -87,7 +87,7 @@ export function LyricsView({ trackId }: { trackId: string }) {
   if (lyrics.isPending) {
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-        <ActivityIndicator />
+        <ActivityIndicator color="#FFFFFF" />
       </View>
     );
   }

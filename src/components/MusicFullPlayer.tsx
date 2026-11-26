@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, BackHandler, FlatList, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { Ellipsis, ListMusic, MessageSquareQuote, Moon, Pause, Play, Repeat, Repeat1, Shuffle, SkipBack, SkipForward, X } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -18,8 +19,8 @@ import {
 import { useSleepRemaining, formatCountdown } from '@/audio/sleepTimer';
 import { useArtworkPalette } from '@/hooks/useArtworkTint';
 import { useCurrentItem, useMusicStore } from '@/store/musicStore';
-import { radius, useTheme } from '@/theme';
-import { InkContext, useBackdropInk, type Ink } from '@/theme/ink';
+import { radius } from '@/theme';
+import { InkContext, type Ink } from '@/theme/ink';
 import { haptics } from '@/utils/haptics';
 import { ArtistName } from './ArtistName';
 import { Artwork } from './Artwork';
@@ -34,6 +35,22 @@ import { useTrackMenu } from './TrackActionSheet';
 import { subtitleOf } from './TrackRow';
 
 const SPRING = { damping: 28, stiffness: 240, mass: 0.9 };
+
+/**
+ * The player looks the same in light and dark mode: white controls and labels on a black canvas washed with the
+ * cover's colours. (Picking black or white from the cover's colour went wrong: black text landed on dark backgrounds.)
+ */
+const PLAYER_INK: Ink = {
+  primary: '#FFFFFF',
+  secondary: 'rgba(255,255,255,0.84)',
+  tertiary: 'rgba(255,255,255,0.66)',
+  accent: '#FFFFFF',
+};
+const CANVAS = '#000000';
+/** Darkens the cover's colours just enough that white stays easy to read even on a yellow or very light cover. */
+const SCRIM = 'rgba(0,0,0,0.42)';
+/** The soft white fill behind round buttons and pills. */
+const SOFT_FILL = 'rgba(255,255,255,0.18)';
 
 type Panel = 'cover' | 'lyrics' | 'queue';
 
@@ -147,7 +164,6 @@ function QueueList({ ink }: { ink: Ink }) {
 
 /** Full-screen now-playing view, in the style of Apple Music: cover, big controls, lyrics and queue. */
 export function MusicFullPlayer() {
-  const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
   const item = useCurrentItem();
@@ -171,7 +187,7 @@ export function MusicFullPlayer() {
   const palette = useArtworkPalette(item ? { id: item.id, logoUrl: item.artworkUrl } : null);
   const tint = palette[0];
   const accents = palette.slice(1);
-  const ink = useBackdropInk(tint);
+  const ink = PLAYER_INK;
 
   const minimise = () => {
     haptics.light();
@@ -293,7 +309,7 @@ export function MusicFullPlayer() {
             borderRadius: 17,
             alignItems: 'center',
             justifyContent: 'center',
-            backgroundColor: 'rgba(128,128,128,0.28)',
+            backgroundColor: SOFT_FILL,
             opacity: pressed ? 0.6 : 1,
           })}
         >
@@ -304,11 +320,14 @@ export function MusicFullPlayer() {
   );
 
   return (
-    <Animated.View pointerEvents={isOpen ? 'auto' : 'none'} style={[StyleSheet.absoluteFill, { backgroundColor: colors.bg, overflow: 'hidden' }, sheetStyle]}>
+    <Animated.View pointerEvents={isOpen ? 'auto' : 'none'} style={[StyleSheet.absoluteFill, { backgroundColor: CANVAS, overflow: 'hidden' }, sheetStyle]}>
+      {/* White status bar over the player; the app's own comes back when it closes */}
+      {isOpen ? <StatusBar style="light" /> : null}
       <InkContext.Provider value={ink}>
         <View style={{ flex: 1, paddingTop: insets.top, paddingBottom: Math.max(insets.bottom, 16) }}>
           <TintBlobs tint={tint} accents={accents} active={isOpen} />
           <Grain />
+          <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: SCRIM }]} />
 
           <GestureDetector gesture={pan}>
             <View style={{ flex: panel === 'cover' ? 1 : 0 }}>
@@ -373,10 +392,10 @@ export function MusicFullPlayer() {
                           onPress={toggleShuffle}
                           accessibilityRole="button"
                           accessibilityLabel={shuffle ? 'Shuffle on' : 'Shuffle off'}
-                          style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, height: 40, borderRadius: radius.pill, backgroundColor: shuffle ? ink.primary : 'rgba(128,128,128,0.28)' }}
+                          style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, height: 40, borderRadius: radius.pill, backgroundColor: shuffle ? ink.primary : SOFT_FILL }}
                         >
-                          <Shuffle size={17} color={shuffle ? colors.bg : ink.primary} />
-                          <Text variant="bodyStrong" style={{ color: shuffle ? colors.bg : ink.primary, fontSize: 14 }}>
+                          <Shuffle size={17} color={shuffle ? CANVAS : ink.primary} />
+                          <Text variant="bodyStrong" style={{ color: shuffle ? CANVAS : ink.primary, fontSize: 14 }}>
                             Shuffle
                           </Text>
                         </Pressable>
@@ -384,10 +403,10 @@ export function MusicFullPlayer() {
                           onPress={cycleRepeat}
                           accessibilityRole="button"
                           accessibilityLabel={repeat === 'off' ? 'Repeat off' : repeat === 'all' ? 'Repeat all' : 'Repeat one'}
-                          style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, height: 40, borderRadius: radius.pill, backgroundColor: repeat !== 'off' ? ink.primary : 'rgba(128,128,128,0.28)' }}
+                          style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, height: 40, borderRadius: radius.pill, backgroundColor: repeat !== 'off' ? ink.primary : SOFT_FILL }}
                         >
-                          <RepeatIcon size={17} color={repeat !== 'off' ? colors.bg : ink.primary} />
-                          <Text variant="bodyStrong" style={{ color: repeat !== 'off' ? colors.bg : ink.primary, fontSize: 14 }}>
+                          <RepeatIcon size={17} color={repeat !== 'off' ? CANVAS : ink.primary} />
+                          <Text variant="bodyStrong" style={{ color: repeat !== 'off' ? CANVAS : ink.primary, fontSize: 14 }}>
                             {repeat === 'one' ? 'Repeat one' : 'Repeat'}
                           </Text>
                         </Pressable>
@@ -412,7 +431,7 @@ export function MusicFullPlayer() {
               </View>
             ) : null}
 
-            <SeekBar slim fillColor={ink.primary} trackColor="rgba(128,128,128,0.4)" />
+            <SeekBar slim fillColor={ink.primary} trackColor="rgba(255,255,255,0.3)" />
 
             {/* The big three: previous, play or pause, next */}
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 18 }}>
@@ -436,7 +455,7 @@ export function MusicFullPlayer() {
             {/* Lyrics on the left, the sleep timer in the middle, the queue on the right */}
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 18 }}>
               <BarButton label={panel === 'lyrics' ? 'Hide lyrics' : 'Show lyrics'} active={panel === 'lyrics'} disabled={!hasLyricsButton} onPress={() => toggle('lyrics')} ink={ink}>
-                <MessageSquareQuote size={22} color={panel === 'lyrics' ? colors.bg : ink.primary} />
+                <MessageSquareQuote size={22} color={panel === 'lyrics' ? CANVAS : ink.primary} />
               </BarButton>
               <BarButton label="Sleep timer" onPress={() => setSleepOpen(true)} ink={ink}>
                 {sleepRemaining !== null ? (
@@ -448,7 +467,7 @@ export function MusicFullPlayer() {
                 )}
               </BarButton>
               <BarButton label={panel === 'queue' ? 'Hide queue' : 'Show queue'} active={panel === 'queue'} onPress={() => toggle('queue')} ink={ink}>
-                <ListMusic size={22} color={panel === 'queue' ? colors.bg : ink.primary} />
+                <ListMusic size={22} color={panel === 'queue' ? CANVAS : ink.primary} />
               </BarButton>
             </View>
           </View>
