@@ -7,6 +7,8 @@ import { useMusicStore } from '@/store/musicStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { showToast } from '@/store/toastStore';
 import { haptics } from '@/utils/haptics';
+import { loadedUpTo } from '../../../modules/blac-audio-buffer';
+import { cancelPreload, clearPreloads, fileIsThere, isPreloadFile, preloadedUri, startPreload } from './preload';
 import type { PlaybackSource } from './source';
 import {
   jumpKeepingQueued,
@@ -40,6 +42,15 @@ import {
 const PREVIOUS_RESTART_AFTER_SEC = 3;
 /** A queued link is renewed once it has less than this left. */
 const REFRESH_AHEAD_MS = 10 * 60 * 1000;
+// The next song is preloaded once the playing one is this far ahead of itself, or has little left to play. Without
+// knowing how much has arrived, once it has played this long.
+const AHEAD_ENOUGH_SEC = 20;
+const NEARLY_OVER_SEC = 30;
+const PLAYED_ENOUGH_SEC = 10;
+/** This close to the end, the next song is left as it is: changing it now could be heard. */
+const TOO_LATE_TO_SWAP_SEC = 4;
+/** The native player has to be given every later song again to change the next one, too much work for longer queues. */
+const LONGEST_TAIL_TO_PRELOAD = 100;
 
 let playlist: AudioPlaylist | null = null;
 /** Bumped on every full reload or stop, so a slow reload that has been replaced can tell and give up. */
@@ -52,6 +63,12 @@ let loading: Promise<void> = Promise.resolve();
 let session = 0;
 /** Songs go into the queue one at a time, in the order they were asked for. */
 let additions: Promise<void> = Promise.resolve();
+/** The listener paused: the player is not waiting for anything, even if little of the song has arrived. */
+let pausedHere = false;
+/** The last song of the queue has finished. */
+let queueEnded = false;
+/** What each entry was given to the native player as: a stream link, or a file on the phone. */
+const nativeUri = new WeakMap<Playable, string>();
 
 const loopFor = (repeat: RepeatMode) => (repeat === 'one' ? 'single' : repeat === 'all' ? 'all' : 'none');
 
@@ -64,12 +81,15 @@ interface CachedLink {
 }
 const links = new Map<string, CachedLink>();
 
+/** The file on the phone to play an item from, if there is one: its download, or its preloaded copy. */
+const fileFor = (item: Playable) => localUriFor(item) ?? preloadedUri(item.id, useSettingsStore.getState().streamQuality);
+
 /**
- * Where to play an item from: its offline copy, a direct link it already carries, or a stream link from
+ * Where to play an item from: its file on the phone, a direct link it already carries, or a stream link from
  * the backend (reused while it has at least `margin` ms left). Rejects when no link can be had.
  */
 export async function resolveSource(item: Playable, margin = REFRESH_AHEAD_MS): Promise<ExpoAudioSource> {
-  const local = localUriFor(item);
+  const local = fileFor(item);
   if (local) return { uri: local };
   if (item.streamUrl) return { uri: item.streamUrl };
 
@@ -98,7 +118,7 @@ function sourceToKeep(item: Playable, margin: number): Promise<ExpoAudioSource |
 
 /** True when the link for `item` has run out, or is about to. */
 function linkIsStale(item: Playable, margin: number): boolean {
-  if (localUriFor(item) || item.streamUrl) return false;
+  if (fileFor(item) || item.streamUrl) return false;
   const link = links.get(item.id);
   return !link || (link.expiresAt !== null && link.expiresAt - Date.now() < margin);
 }
@@ -127,7 +147,70 @@ function arrivedAt(index: number) {
   state.set({ index, waiting: stillWaiting(state.queue, index, state.waiting) });
   const item = state.queue[index];
   if (item) playlist?.updateLockScreenMetadata(metadataFor(item));
-  void refreshStaleUpcoming();
+  if (!reloadIfFileGone()) void refreshStaleUpcoming();
+}
+
+/**
+ * A preloaded file can be cleared away (to save space, or by the phone) while the native player still points at it,
+ * which matters only if that song is played again. The queue is then loaded afresh.
+ */
+function reloadIfFileGone(): boolean {
+  const { active, queue, index, repeat } = useMusicStore.getState();
+  const item = active ? queue[index] : undefined;
+  const uri = item ? nativeUri.get(item) : undefined;
+  if (!uri || !isPreloadFile(uri) || fileIsThere(uri)) return false;
+  load(queue, index, repeat, 0, !pausedHere);
+  return true;
+}
+
+/** True once the playing song has what it needs, so saving the next one will not slow it down. */
+function roomToPreload(): boolean {
+  const player = getPlaylist();
+  const { duration, currentTime } = player;
+  if (!(duration > 0)) return false;
+  const left = duration - currentTime;
+  const { queue, index } = useMusicStore.getState();
+  if (nativeUri.get(queue[index])?.startsWith('file:') || left <= NEARLY_OVER_SEC) return true;
+  const loaded = loadedUpTo(player);
+  if (loaded === null) return currentTime >= PLAYED_ENOUGH_SEC;
+  return loaded >= duration - 1 || loaded - currentTime >= AHEAD_ENOUGH_SEC;
+}
+
+/** While a song plays: gets the next one saved on the phone, then has the native player use that file. */
+function preloadNext() {
+  const { active, queue, index, repeat } = useMusicStore.getState();
+  const next = active ? queue[index + 1] : undefined;
+  // Podcast episodes are too long to save ahead; a downloaded song is on the phone already.
+  const tooLong = queue.length - index - 1 > LONGEST_TAIL_TO_PRELOAD;
+  if (!next || tooLong || repeat === 'one' || next.kind !== 'track' || next.preview || next.streamUrl || localUriFor(next)) {
+    cancelPreload();
+    return;
+  }
+  const quality = useSettingsStore.getState().streamQuality;
+  const file = preloadedUri(next.id, quality);
+  if (!file) {
+    if (roomToPreload()) startPreload(next.id, quality, async () => await streamLink(next), new Set([queue[index].id, next.id]));
+    return;
+  }
+  if (nativeUri.get(next) === file || catchUp()) return;
+  const player = getPlaylist();
+  if (player.duration > 0 && player.duration - player.currentTime < TOO_LATE_TO_SWAP_SEC) return;
+  matchUpcoming(index + 1);
+}
+
+/** A link to a song that will last long enough to fetch the whole file. */
+async function streamLink(item: Playable): Promise<string> {
+  const source = (await resolveSource(item, 60_000)) as { uri: string };
+  return source.uri;
+}
+
+/** How much of the playing song has arrived on the phone, from 0 to 1. A song played from a file is all there. */
+export function loadedFraction(): number {
+  const { active, queue, index } = useMusicStore.getState();
+  if (!active || !playlist || !(playlist.duration > 0)) return 0;
+  if (nativeUri.get(queue[index])?.startsWith('file:')) return 1;
+  const loaded = loadedUpTo(playlist);
+  return loaded === null ? 0 : Math.max(0, Math.min(1, loaded / playlist.duration));
 }
 
 /**
@@ -151,14 +234,22 @@ async function loadSettled() {
   } while (latest !== loading);
 }
 
+function addToNative(item: Playable, source: ExpoAudioSource) {
+  nativeUri.set(item, (source as { uri?: string }).uri ?? '');
+  getPlaylist().add(source);
+}
+
 /**
- * Makes the native playlist hold `sources` from position `from` on, in place of what was there. `from` must be after
- * the playing song, which is then not interrupted.
+ * Makes the native playlist hold `items` (played from `sources`; one without a source is left out) from position
+ * `from` on, in place of what was there. `from` must be after the playing song, which is then not interrupted.
  */
-function setNativeTail(from: number, sources: (ExpoAudioSource | null)[]) {
+function setNativeTail(from: number, items: Playable[], sources: (ExpoAudioSource | null)[]) {
   const player = getPlaylist();
   for (let i = player.trackCount - 1; i >= from; i--) player.remove(i);
-  sources.forEach((source) => source && player.add(source));
+  items.forEach((item, i) => {
+    const source = sources[i];
+    if (source) addToNative(item, source);
+  });
 }
 
 /**
@@ -166,7 +257,7 @@ function setNativeTail(from: number, sources: (ExpoAudioSource | null)[]) {
  * run out (or is missing) is renewed straight after, see `refreshStaleUpcoming`.
  */
 function sourceAtHand(item: Playable): ExpoAudioSource {
-  return { uri: localUriFor(item) ?? item.streamUrl ?? links.get(item.id)?.url ?? `unlinked:${item.id}` };
+  return { uri: fileFor(item) ?? item.streamUrl ?? links.get(item.id)?.url ?? `unlinked:${item.id}` };
 }
 
 /**
@@ -179,7 +270,8 @@ function matchUpcoming(from?: number) {
   // Nothing to line up while the native player is still loading (or if it failed to).
   if (getPlaylist().trackCount <= index) return;
   const start = Math.max(index + 1, from ?? 0);
-  setNativeTail(start, queue.slice(start).map(sourceAtHand));
+  const items = queue.slice(start);
+  setNativeTail(start, items, items.map(sourceAtHand));
   void refreshStaleUpcoming();
 }
 
@@ -199,9 +291,18 @@ export function getPlaylist(): AudioPlaylist {
   created.addListener('playlistStatusUpdate', (status) => {
     const state = useMusicStore.getState();
     if (!state.active) return;
-    if (state.playing !== status.playing || state.buffering !== status.isBuffering) {
-      state.set({ playing: status.playing, buffering: status.isBuffering });
+    if (status.playing) {
+      pausedHere = false;
+      queueEnded = false;
+    } else if (status.didJustFinish) {
+      queueEnded = true;
     }
+    // "Buffering" is waiting for audio. The phone also says so after the last song, and can while paused.
+    const buffering = status.isBuffering && !status.playing && !pausedHere && !queueEnded;
+    if (state.playing !== status.playing || state.buffering !== buffering) {
+      state.set({ playing: status.playing, buffering });
+    }
+    if (status.playing) preloadNext();
   });
 
   return created;
@@ -214,6 +315,8 @@ export function getPlaylist(): AudioPlaylist {
  */
 async function startQueue(items: Playable[], startIndex: number, repeat: RepeatMode, positionSec = 0, autoplay = true) {
   const seq = ++loadSeq;
+  pausedHere = !autoplay;
+  queueEnded = false;
   const player = getPlaylist();
   player.pause();
   player.clear();
@@ -238,7 +341,7 @@ async function startQueue(items: Playable[], startIndex: number, repeat: RepeatM
     now.set({ queue, originalQueue: now.originalQueue.filter((x) => sourceOf.get(x) !== null), index });
   }
 
-  queue.forEach((item) => player.add(sourceOf.get(item) ?? sourceAtHand(item)));
+  queue.forEach((item) => addToNative(item, sourceOf.get(item) ?? sourceAtHand(item)));
   player.loop = loopFor(repeat);
   if (index > 0) player.skipTo(index);
   // The saved position belongs to the song that was asked for.
@@ -293,11 +396,19 @@ export function playQueue(items: Playable[], startIndex = 0, options: { shuffle?
 
 export function toggleMusicPlayback() {
   const player = getPlaylist();
-  const { active, playing, queue, index, repeat } = useMusicStore.getState();
+  const { active, playing, buffering, queue, index, repeat } = useMusicStore.getState();
   if (!active) return;
   haptics.light();
-  if (playing) {
-    player.pause();
+  // While a song is still loading, the button pauses it, as it would once it plays.
+  if (playing || buffering) {
+    pauseMusic();
+    return;
+  }
+  pausedHere = false;
+  // After the last song the native player holds nothing: play it again from the start.
+  if (queueEnded) {
+    useMusicStore.getState().set({ playing: true, buffering: true });
+    load(queue, index, repeat);
     return;
   }
   // A stream link that expired while paused would fail on resume: fetch a new one and carry on from here.
@@ -311,7 +422,10 @@ export function toggleMusicPlayback() {
 }
 
 export function pauseMusic() {
+  pausedHere = true;
   playlist?.pause();
+  const state = useMusicStore.getState();
+  if (state.active) state.set({ playing: false, buffering: false });
 }
 
 export function nextTrack() {
@@ -368,8 +482,11 @@ export function playQueueIndex(index: number) {
     player.skipTo(at);
   }
   if (moving.length > 0) matchUpcoming();
+  pausedHere = false;
+  queueEnded = false;
   player.play();
   activateLockScreen(target);
+  reloadIfFileGone();
 }
 
 /**
@@ -396,7 +513,7 @@ async function replaceUpcoming() {
       state.set({ queue: [...state.queue.slice(0, state.index + 1), ...upcoming.filter((_, i) => sources[i] !== null)] });
     }
     // Nothing to do if the native player never got this far (its queue failed to load).
-    if (getPlaylist().trackCount > state.index) setNativeTail(state.index + 1, sources);
+    if (getPlaylist().trackCount > state.index) setNativeTail(state.index + 1, upcoming, sources);
     return;
   }
 }
@@ -476,7 +593,7 @@ async function putInQueue(item: Playable, link: Promise<ExpoAudioSource>, asked:
       queue: [...state.queue.slice(0, at), entry, ...after.filter((_, i) => sources[i] !== null)],
       waiting: new Set(state.waiting).add(entry),
     });
-    if (getPlaylist().trackCount >= at) setNativeTail(at, [source, ...sources]);
+    if (getPlaylist().trackCount >= at) setNativeTail(at, [entry, ...after], [source, ...sources]);
     showToast('Added to queue');
     return;
   }
@@ -530,8 +647,9 @@ export function removeFromQueue(index: number) {
  * current song over, so in that case the queue is loaded again at the same second, still paused if it was paused.
  */
 export function dropFromPlayer(ids: ReadonlySet<string>): 'stopped' | 'removed' | null {
-  // Their stream links must not be used again.
+  // Their stream links and preloaded files must not be used again.
   ids.forEach((id) => links.delete(id));
+  clearPreloads(ids);
   const state = useMusicStore.getState();
   if (!state.active || !state.queue.some((item) => ids.has(item.id))) return null;
   const current = state.queue[state.index];
@@ -561,6 +679,7 @@ export function stopMusic() {
   loadSeq++;
   upcomingSeq++;
   session++;
+  clearPreloads();
   const state = useMusicStore.getState();
   if (!playlist || !state.active) {
     state.reset();

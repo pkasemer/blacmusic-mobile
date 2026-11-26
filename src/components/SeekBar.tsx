@@ -5,7 +5,8 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
 import { formatTime } from '@/audio/music/queue';
-import { getPlaylist, seekMusic } from '@/audio/music/musicEngine';
+import { getPlaylist, loadedFraction, seekMusic } from '@/audio/music/musicEngine';
+import { useCurrentItem } from '@/store/musicStore';
 import { useTheme } from '@/theme';
 import { haptics } from '@/utils/haptics';
 import { Text } from './Text';
@@ -14,13 +15,46 @@ const TRACK_HEIGHT = 4;
 const THUMB = 14;
 const TOUCH_HEIGHT = 36;
 
+/** How much of the playing song has arrived, from 0 to 1. Asked twice a second, also while paused or still loading. */
+function useLoaded(songId: string) {
+  const [loaded, setLoaded] = useState({ songId, value: 0 });
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const value = loadedFraction();
+      setLoaded((last) => (last.songId === songId && Math.abs(last.value - value) < 0.002 ? last : { songId, value }));
+    }, 500);
+    return () => clearInterval(timer);
+  }, [songId]);
+  // The last answer may belong to the song before.
+  return loaded.songId === songId ? loaded.value : 0;
+}
+
 /**
- * Progress bar for the on-demand player: shows position and length, and seeks on tap or drag.
+ * Progress bar for the on-demand player: shows position, length and (faintly) how much has loaded, and seeks on tap or drag.
  * It follows the native player directly (not the store) so the rest of the screen does not re-render
  * every half second. While dragging it shows where you are dragging to and seeks once on release.
  */
-export function SeekBar({ trackColor, fillColor, slim }: { trackColor?: string; fillColor?: string; /** No thumb; the bar grows while touched, like Apple Music. */ slim?: boolean }) {
+export function SeekBar({
+  trackColor,
+  fillColor,
+  loadedColor,
+  slim,
+}: {
+  trackColor?: string;
+  fillColor?: string;
+  /** The part that has loaded but not played yet. */
+  loadedColor?: string;
+  /** No thumb; the bar grows while touched, like Apple Music. */
+  slim?: boolean;
+}) {
   const { colors } = useTheme();
+  const loaded = useLoaded(useCurrentItem()?.id ?? '');
+  const loadedSv = useSharedValue(0);
+  useEffect(() => {
+    // Grows smoothly; a new song starts empty at once.
+    loadedSv.set(loaded > loadedSv.get() ? withTiming(loaded, { duration: 450 }) : loaded);
+  }, [loaded, loadedSv]);
+  const loadedStyle = useAnimatedStyle(() => ({ width: `${loadedSv.value * 100}%` }));
   const status = useAudioPlaylistStatus(getPlaylist());
   const duration = status.duration > 0 ? status.duration : 0;
 
@@ -104,6 +138,9 @@ export function SeekBar({ trackColor, fillColor, slim }: { trackColor?: string; 
           style={{ height: TOUCH_HEIGHT, justifyContent: 'center' }}
         >
           <Animated.View style={[{ backgroundColor: trackColor ?? colors.borderStrong, overflow: 'hidden' }, trackStyle]}>
+            <Animated.View
+              style={[{ position: 'absolute', left: 0, top: 0, bottom: 0, backgroundColor: loadedColor ?? colors.textTertiary, opacity: loadedColor ? 1 : 0.45 }, loadedStyle]}
+            />
             <Animated.View style={[{ height: '100%', backgroundColor: fillColor ?? colors.text }, fillStyle]} />
           </Animated.View>
           <Animated.View

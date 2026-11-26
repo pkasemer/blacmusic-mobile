@@ -43,12 +43,14 @@ const CARD_FILL = 'rgba(255,255,255,0.14)';
 /** What is playing, set apart in its own card above the queue: moving bars while it plays, still ones when paused. */
 export function NowPlaying({ item, title, actions }: { item: Playable; title: ReactNode; actions: ReactNode }) {
   const playing = useMusicStore((s) => s.playing);
+  const buffering = useMusicStore((s) => s.buffering);
+  const state = buffering ? 'Loading…' : playing ? 'Now playing' : 'Paused';
   return (
     <View style={{ marginHorizontal: 16, marginBottom: 12, padding: 12, gap: 10, borderRadius: 16, borderCurve: 'continuous', backgroundColor: CARD_FILL }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }} accessible accessibilityLabel={playing ? 'Now playing' : 'Paused'}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }} accessible accessibilityLabel={state}>
         <Equalizer active={playing} color="#FFFFFF" size={12} />
         <Text variant="label" color="textSecondary">
-          {playing ? 'Now playing' : 'Paused'}
+          {state}
         </Text>
       </View>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>

@@ -13,7 +13,8 @@ import { subtitleOf } from './TrackRow';
 function useMusicPhase() {
   const playing = useMusicStore((s) => s.playing);
   const buffering = useMusicStore((s) => s.buffering);
-  return playing ? (buffering ? 'buffering' : 'playing') : 'paused';
+  // A song that is still loading is not "playing" yet, so this is asked first.
+  return buffering ? 'buffering' : playing ? 'playing' : 'paused';
 }
 
 const openMusicPlayer = () => {

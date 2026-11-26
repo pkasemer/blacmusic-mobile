@@ -385,7 +385,7 @@ export function MusicFullPlayer() {
               </View>
             ) : null}
 
-            <SeekBar slim fillColor={ink.primary} trackColor="rgba(255,255,255,0.3)" />
+            <SeekBar slim fillColor={ink.primary} trackColor="rgba(255,255,255,0.2)" loadedColor="rgba(255,255,255,0.3)" />
 
             {/* The big three: previous, play or pause, next */}
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 18 }}>
