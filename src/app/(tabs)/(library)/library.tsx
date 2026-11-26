@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Pressable, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ArrowDownToLine, Globe, Heart, ListMusic, Lock, Play, Plus, Trash2, X } from 'lucide-react-native';
+import { ArrowDownToLine, Globe, Heart, History, ListMusic, Lock, Play, Plus, Trash2, X, type LucideIcon } from 'lucide-react-native';
 import { useMyPlaylists, usePlayables } from '@/api/blac/queries';
 import { playQueue } from '@/audio/music/musicEngine';
 import { formatBytes } from '@/cache/imageCache';
@@ -20,19 +20,38 @@ import type { DownloadItem, Playable, Playlist } from '@/domain/types';
 import { cancelDownload, removeAllDownloads, retryDownload } from '@/offline/downloads';
 import { useDownloadStore } from '@/store/downloadStore';
 import { useFavouritesStore } from '@/store/favouritesStore';
+import { useHistoryStore } from '@/store/historyStore';
+import { useLibraryStore, type LibrarySection } from '@/store/libraryStore';
 import { refreshMusic, usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { useTheme } from '@/theme';
 import { haptics } from '@/utils/haptics';
 import { topInset } from '@/utils/platform';
 
-type Segment = 'favourites' | 'playlists' | 'downloads';
-
-/** The wide card for your liked songs: the last few covers stacked, how many there are, and a Play button. */
-function LikedCard({ items, count, selected, onPress, onPlay }: { items: Playable[]; count: number; selected: boolean; onPress: () => void; onPlay: () => void }) {
+/** A wide card for a list of songs (likes, recently played): its first covers stacked, how many, and a Play button. */
+function SongsCard({
+  title,
+  Icon,
+  items,
+  detail,
+  playLabel,
+  selected,
+  onPress,
+  onPlay,
+}: {
+  title: string;
+  /** Shown while there are no covers. */
+  Icon: LucideIcon;
+  items: Playable[];
+  detail: string;
+  playLabel: string;
+  selected: boolean;
+  onPress: () => void;
+  onPlay: () => void;
+}) {
   const { colors } = useTheme();
   const covers = items.slice(0, 3);
   return (
-    <GradientSurface selected={selected} onPress={onPress} label={`Likes, ${count} songs`} style={{ height: 112, flexDirection: 'row', alignItems: 'center', gap: 16, paddingHorizontal: 16 }}>
+    <GradientSurface selected={selected} onPress={onPress} label={`${title}, ${detail}`} style={{ height: 88, flexDirection: 'row', alignItems: 'center', gap: 16, paddingHorizontal: 16 }}>
       <View style={{ width: covers.length > 0 ? 62 + (covers.length - 1) * 26 : 62, height: 72, justifyContent: 'center' }}>
         {covers.length > 0 ? (
           covers.map((t, i) => (
@@ -55,18 +74,18 @@ function LikedCard({ items, count, selected, onPress, onPlay }: { items: Playabl
             </View>
           ))
         ) : (
-          <Heart size={34} color={colors.text} strokeWidth={1.8} />
+          <Icon size={34} color={colors.text} strokeWidth={1.8} />
         )}
       </View>
       <View style={{ flex: 1, gap: 2 }}>
         <Text variant="title" numberOfLines={1}>
-          Likes
+          {title}
         </Text>
-        <Text variant="caption" color="textSecondary">
-          {count} {count === 1 ? 'song' : 'songs'}
+        <Text variant="caption" color="textSecondary" numberOfLines={1}>
+          {detail}
         </Text>
       </View>
-      {count > 0 ? (
+      {items.length > 0 ? (
         <Pressable
           onPress={() => {
             haptics.select();
@@ -74,7 +93,7 @@ function LikedCard({ items, count, selected, onPress, onPlay }: { items: Playabl
           }}
           hitSlop={8}
           accessibilityRole="button"
-          accessibilityLabel="Play your likes"
+          accessibilityLabel={playLabel}
           style={({ pressed }) => ({ width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.text, opacity: pressed ? 0.8 : 1 })}
         >
           <Play size={20} color={colors.bg} fill={colors.bg} strokeWidth={0} style={{ marginLeft: 2 }} />
@@ -162,10 +181,22 @@ export default function LibraryScreen() {
   const router = useRouter();
   const [creating, setCreating] = useState(false);
   const myPlaylists = useMyPlaylists();
-  const [segment, setSegment] = useState<Segment>('favourites');
+  const segment = useLibraryStore((s) => s.section);
+  const showSection = useLibraryStore((s) => s.show);
   const favouriteIds = useFavouritesStore((s) => s.ids);
   const favourites = usePlayables(favouriteIds);
   const downloads = useDownloadStore((s) => s.items);
+  // Recently played is saved as ids, newest first; look them up to get the songs back.
+  const historyKey = useHistoryStore((s) => s.entries.map((e) => e.itemId).join(','));
+  const recentIds = useMemo(() => (historyKey ? historyKey.split(',') : []), [historyKey]);
+  const recent = usePlayables(recentIds);
+  const recentItems = useMemo(() => {
+    const byId = new Map((recent.data ?? []).map((p) => [p.id, p]));
+    return recentIds.flatMap((id) => {
+      const item = byId.get(id);
+      return item ? [item] : [];
+    });
+  }, [recent.data, recentIds]);
   const menu = useTrackMenu();
   /** The song menu (with "Add to queue") for a row; podcast episodes have none. */
   const trackMenuFor = (item: Playable) => (item.kind === 'track' ? () => menu.open(item) : undefined);
@@ -192,10 +223,15 @@ export default function LibraryScreen() {
   };
 
   const playlistCount = myPlaylists.data?.length ?? 0;
-  const pick = (next: Segment) => {
+  const pick = (next: LibrarySection) => {
     haptics.select();
-    setSegment(next);
+    showSection(next);
   };
+  const countOf = (n: number, items: Playable[]) => {
+    const word = items.some((p) => p.kind !== 'track') ? 'item' : 'song';
+    return `${n} ${word}${n === 1 ? '' : 's'}`;
+  };
+  const songList = segment === 'recent' ? recentItems : favouriteItems;
 
   const header = (
     <View style={{ gap: 16, paddingBottom: 12 }}>
@@ -218,14 +254,27 @@ export default function LibraryScreen() {
         </Pressable>
       </View>
 
-      {/* Likes gets the wide card; Playlists and Downloads share the row under it */}
+      {/* Likes and Recently played get wide cards; Playlists and Downloads share the row under them */}
       <View style={{ gap: 10, paddingHorizontal: 16 }}>
-        <LikedCard
+        <SongsCard
+          title="Likes"
+          Icon={Heart}
           items={favouriteItems}
-          count={favouriteIds.length}
+          detail={countOf(favouriteIds.length, favouriteItems)}
+          playLabel="Play your likes"
           selected={segment === 'favourites'}
           onPress={() => pick('favourites')}
           onPlay={() => playQueue(favouriteItems, 0, { source: { type: 'favourites' } })}
+        />
+        <SongsCard
+          title="Recently played"
+          Icon={History}
+          items={recentItems}
+          detail={countOf(recentIds.length, recentItems)}
+          playLabel="Play what you played recently"
+          selected={segment === 'recent'}
+          onPress={() => pick('recent')}
+          onPlay={() => playQueue(recentItems, 0, { source: { type: 'recent' } })}
         />
         <View style={{ flexDirection: 'row', gap: 10 }}>
           <GradientCard
@@ -247,7 +296,9 @@ export default function LibraryScreen() {
 
       {/* Which list is open */}
       <View style={{ paddingHorizontal: 20 }}>
-        <Text variant="title">{segment === 'favourites' ? 'Liked songs' : segment === 'playlists' ? 'Your playlists' : 'Downloaded'}</Text>
+        <Text variant="title">
+          {segment === 'favourites' ? 'Liked songs' : segment === 'recent' ? 'Recently played' : segment === 'playlists' ? 'Your playlists' : 'Downloaded'}
+        </Text>
       </View>
       {segment === 'downloads' && downloadEntries.length > 0 ? (
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20 }}>
@@ -269,8 +320,8 @@ export default function LibraryScreen() {
       ) : null}
       {segment === 'playlists' ? null : (
         <PlayAllBar
-          items={segment === 'favourites' ? favouriteItems : playableDownloads}
-          source={segment === 'favourites' ? { type: 'favourites' } : { type: 'downloads' }}
+          items={segment === 'downloads' ? playableDownloads : songList}
+          source={{ type: segment }}
         />
       )}
     </View>
@@ -308,20 +359,22 @@ export default function LibraryScreen() {
           refreshControl={refreshControl}
           showsVerticalScrollIndicator={false}
         />
-      ) : segment === 'favourites' ? (
+      ) : segment === 'favourites' || segment === 'recent' ? (
         <FlatList
-          data={favouriteItems}
+          // Each list starts at its own top.
+          key={segment}
+          data={songList}
           keyExtractor={(item) => item.id}
           renderItem={({ item, index }) => (
-            <TrackRow
-              item={item}
-              onPress={() => playQueue(favouriteItems, index, { source: { type: 'favourites' } })}
-              onMore={trackMenuFor(item)}
-            />
+            <TrackRow item={item} onPress={() => playQueue(songList, index, { source: { type: segment } })} onMore={trackMenuFor(item)} />
           )}
           ListHeaderComponent={header}
           ListEmptyComponent={
-            favourites.isPending && favouriteIds.length > 0 ? undefined : (
+            segment === 'recent' ? (
+              recent.isPending && recentIds.length > 0 ? undefined : (
+                <ScreenState kind="empty" title="Nothing played yet" message="Songs and episodes you play will show up here." />
+              )
+            ) : favourites.isPending && favouriteIds.length > 0 ? undefined : (
               <ScreenState kind="empty" title="No likes yet" message="Tap the heart on a song or episode to keep it here." />
             )
           }

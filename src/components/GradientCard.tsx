@@ -76,7 +76,7 @@ export function GradientCard({
 }) {
   const { colors } = useTheme();
   return (
-    <GradientSurface selected={selected} onPress={onPress} label={`${title}, ${subtitle}`} style={{ flex: 1, height: 104, padding: 14, justifyContent: 'space-between' }}>
+    <GradientSurface selected={selected} onPress={onPress} label={`${title}, ${subtitle}`} style={{ flex: 1, height: 92, padding: 12, justifyContent: 'space-between' }}>
       <Icon size={26} color={colors.text} strokeWidth={1.9} />
       <View style={{ gap: 1 }}>
         <Text variant="headline" numberOfLines={1} style={{ fontSize: 17 }}>

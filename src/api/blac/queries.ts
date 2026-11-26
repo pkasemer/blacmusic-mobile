@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { blacApi } from './index';
 import type { Album } from '@/domain/types';
 import { FALLBACK_GENRES } from '@/domain/genres';
@@ -93,6 +93,9 @@ export const usePlayables = (ids: string[]) =>
     queryKey: musicKeys.playables(ids),
     queryFn: () => blacApi.getPlayables(ids),
     enabled: ids.length > 0,
+    // Playing or liking a song changes the ids: keep showing what is known while the new answer comes. Screens look
+    // songs up by id, so one that is no longer asked for never shows.
+    placeholderData: keepPreviousData,
     staleTime: FIVE_MINUTES,
   });
 

@@ -2,20 +2,20 @@ import { useMemo } from 'react';
 import { ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { Heart } from 'lucide-react-native';
+import { Heart, History } from 'lucide-react-native';
 import { playQueue } from '@/audio/music/musicEngine';
 import { useAlbums, useFeaturedArtists, useMyPlaylists, useNewReleaseAlbums, usePlayables, usePlaylistGroups, usePlaylists, usePodcasts } from '@/api/blac/queries';
 import { Artwork } from '@/components/Artwork';
 import { HomeHero, TILE_SIZE, type HomeFeatured, type HomeTile } from '@/components/HomeHero';
-import { AlbumShelf, ArtistShelf, MusicShelf, PlaylistShelf, PodcastShelf } from '@/components/MusicShelf';
+import { AlbumShelf, ArtistShelf, PlaylistShelf, PodcastShelf } from '@/components/MusicShelf';
 import { PlaylistCover } from '@/components/PlaylistCover';
 import { ScreenState } from '@/components/ScreenState';
 import { HomeSkeleton } from '@/components/Skeleton';
 import { TabScreen } from '@/components/TabScreen';
 import { Text } from '@/components/Text';
 import type { Playable, Track } from '@/domain/types';
-import { useFavouritesStore } from '@/store/favouritesStore';
 import { useHistoryStore } from '@/store/historyStore';
+import { useLibraryStore, type LibrarySection } from '@/store/libraryStore';
 import { useMusicStore } from '@/store/musicStore';
 import { useResumeStore } from '@/store/resumeStore';
 import { formatTime } from '@/audio/music/queue';
@@ -45,12 +45,10 @@ export default function HomeScreen() {
   const router = useRouter();
   const { colors } = useTheme();
 
-  // Recently played and favourites are saved ids; look them up to get the songs back.
+  // Recently played is saved as ids; look them up to get the songs back.
   const historyKey = useHistoryStore((s) => s.entries.map((e) => e.itemId).join(','));
-  const favouriteIds = useFavouritesStore((s) => s.ids);
   const recentIds = useMemo(() => (historyKey ? historyKey.split(',') : []), [historyKey]);
   const recent = usePlayables(recentIds);
-  const favourites = usePlayables(favouriteIds);
 
   const recentTracks = useMemo(() => tracksInOrder(recentIds, recent.data), [recentIds, recent.data]);
 
@@ -62,7 +60,6 @@ export default function HomeScreen() {
   const resumeTrack = useMemo(() => tracksInOrder(resumeId ? [resumeId] : [], resumeItems.data)[0], [resumeId, resumeItems.data]);
   // Something is already loaded in the player (playing or paused): the mini player is the way back to it.
   const playerLoaded = useMusicStore((s) => s.active && s.queue.length > 0);
-  const favouriteTracks = useMemo(() => tracksInOrder(favouriteIds, favourites.data), [favouriteIds, favourites.data]);
 
   // "Your" playlists come first in full; the recommended Playlists row leaves yours out so nothing shows twice.
   const yourPlaylists = useMemo(() => myPlaylists.data ?? [], [myPlaylists.data]);
@@ -105,20 +102,21 @@ export default function HomeScreen() {
     return undefined;
   }, [playerLoaded, resumeTrack, resumePosition, resumeDuration, recentTracks, newReleases.data, router]);
 
-  // Quick-access tiles: likes, then your playlists, then what you played last. A newcomer with none of that
-  // gets the featured playlists and albums instead, so the top of Home is never empty.
+  // Quick-access tiles: likes and recently played (both open in the Library), then your playlists, then what you
+  // played last. A newcomer with none of that gets the featured playlists and albums too, so the top of Home is full.
   const tiles = useMemo<HomeTile[]>(() => {
-    const list: HomeTile[] = [
-      {
-        key: 'favourites',
-        title: 'Likes',
-        art: (
-          <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary }}>
-            <Heart size={22} color={colors.onPrimary} fill={colors.onPrimary} />
-          </View>
-        ),
-        onPress: () => router.navigate('/library'),
+    const libraryTile = (section: LibrarySection, title: string, icon: React.ReactNode): HomeTile => ({
+      key: section,
+      title,
+      art: <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary }}>{icon}</View>,
+      onPress: () => {
+        useLibraryStore.getState().show(section);
+        router.navigate('/library');
       },
+    });
+    const list: HomeTile[] = [
+      libraryTile('favourites', 'Likes', <Heart size={22} color={colors.onPrimary} fill={colors.onPrimary} />),
+      libraryTile('recent', 'Recently played', <History size={22} color={colors.onPrimary} strokeWidth={2.4} />),
     ];
     for (const p of yourPlaylists.slice(0, 3)) {
       list.push({
@@ -166,7 +164,7 @@ export default function HomeScreen() {
       .filter((g) => g.playlists.length > 0);
   }, [groups.data, yourPlaylists]);
 
-  const hasYours = recentTracks.length > 0 || yourPlaylists.length > 0 || favouriteTracks.length > 0;
+  const hasYours = yourPlaylists.length > 0;
 
   const loading = playlists.isPending && newReleases.isPending && podcasts.isPending && artists.isPending && albums.isPending;
   const failed = playlists.isError && newReleases.isError && podcasts.isError && artists.isError && albums.isError;
@@ -178,8 +176,7 @@ export default function HomeScreen() {
     !podcasts.data?.length &&
     !artists.data?.length &&
     !albums.data?.length &&
-    recentTracks.length === 0 &&
-    favouriteTracks.length === 0;
+    yourPlaylists.length === 0;
 
   const retry = () => {
     void playlists.refetch();
@@ -216,10 +213,8 @@ export default function HomeScreen() {
           <ScreenState kind="empty" title="Nothing here yet" message="New songs and podcasts will show up here." />
         ) : (
           <>
-            {/* Yours first: what you played, your playlists, your likes */}
-            <MusicShelf title="Recently played" tracks={recentTracks} source={{ type: 'recent' }} />
+            {/* Yours first (likes and recently played are in the Library) */}
             <PlaylistShelf title="Your playlists" playlists={yourPlaylists} />
-            <MusicShelf title="Your likes" tracks={favouriteTracks} source={{ type: 'favourites' }} />
 
             {/* Then what we recommend */}
             {hasYours ? (
