@@ -130,7 +130,7 @@ export function DetailHero({
           <TintBlobs tint={tint} accents={accents} active={focused} width={width} height={height} />
           {/* Fade the colour into the page so the content below sits on a clean background. */}
           <View pointerEvents="none" style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: FADE_HEIGHT }}>
-            <Svg width="100%" height={FADE_HEIGHT}>
+            <Svg key={colors.bg} width="100%" height={FADE_HEIGHT}>
               <Defs>
                 <LinearGradient id="fade" x1="0" y1="0" x2="0" y2="1">
                   <Stop offset="0" stopColor={colors.bg} stopOpacity={0} />

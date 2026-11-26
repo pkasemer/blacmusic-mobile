@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Appearance, View } from 'react-native';
+import { View } from 'react-native';
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
@@ -31,6 +31,7 @@ import { useFavouritesStore } from '@/store/favouritesStore';
 import { useHistoryStore, useRecordListeningHistory } from '@/store/historyStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { useTheme } from '@/theme';
+import { applyScheme } from '@/theme/scheme';
 import { fontSources } from '@/theme/fonts';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -94,7 +95,7 @@ function AppShell() {
 
   // Drive the native color scheme so system UI (status bar, sheets, dialogs) matches the choice.
   useEffect(() => {
-    Appearance.setColorScheme(themeMode === 'system' ? 'auto' : themeMode);
+    applyScheme(themeMode);
   }, [themeMode]);
 
   return (

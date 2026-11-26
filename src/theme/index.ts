@@ -1,4 +1,4 @@
-import { useColorScheme } from 'react-native';
+import { useSchemeStore } from './scheme';
 
 export type Colors = {
   bg: string;
@@ -143,7 +143,6 @@ export function glassSurface(isDark: boolean) {
 }
 
 export function useTheme() {
-  const scheme = useColorScheme();
-  const isDark = scheme === 'dark';
+  const isDark = useSchemeStore((s) => s.scheme === 'dark');
   return { colors: isDark ? darkColors : lightColors, isDark };
 }

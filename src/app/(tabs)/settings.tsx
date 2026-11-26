@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, Alert, Appearance, Platform, Pressable, ScrollView, View } from 'react-native';
+import { ActivityIndicator, Alert, Platform, Pressable, ScrollView, View } from 'react-native';
 import Constants from 'expo-constants';
 import { useFocusEffect, useRouter } from 'expo-router';
 import {
@@ -54,6 +54,7 @@ import { useHistoryStore } from '@/store/historyStore';
 import { useSettingsStore, type ThemeMode } from '@/store/settingsStore';
 import { SLEEP_PRESETS, useSleepStore } from '@/store/sleepStore';
 import { useTheme } from '@/theme';
+import { applyScheme } from '@/theme/scheme';
 import { clearColorCache } from '@/utils/dominantColor';
 import { haptics } from '@/utils/haptics';
 import { openLegal } from '@/utils/legal';
@@ -63,9 +64,9 @@ const THEME_LABEL: Record<ThemeMode, string> = { system: 'Automatic', light: 'Li
 
 const QUALITY_LABEL: Record<StreamQuality, string> = { low: 'Low data', medium: 'Standard', high: 'High' };
 
-/** Changes the theme in one step: the native colour scheme and the saved choice together, so everything switches on one frame. */
+/** Changes the theme in one step: the colour scheme and the saved choice together, so everything switches on one frame. */
 function applyThemeMode(mode: ThemeMode) {
-  Appearance.setColorScheme(mode === 'system' ? 'auto' : mode);
+  applyScheme(mode);
   useSettingsStore.getState().setThemeMode(mode);
   haptics.select();
 }

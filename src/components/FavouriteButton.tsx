@@ -5,12 +5,13 @@ import { Heart } from 'lucide-react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withSequence, withSpring, withTiming } from 'react-native-reanimated';
 import { useFavouritesStore, useIsFavourite } from '@/store/favouritesStore';
 import { useTheme } from '@/theme';
+import { ActionPill } from './DetailActions';
 import { haptics } from '@/utils/haptics';
 
 /**
  * Heart button: tap to add the song or episode to your likes, tap again to remove it.
  *
- * - `round`: a 44 pt filled circle, matching the other buttons on a details page.
+ * - `pill`: "Like" or "Liked", matching the other buttons on a details page.
  * - `icon`: a bare 44 pt heart for toolbars and headers, in the colour you pass.
  */
 export function FavouriteButton({
@@ -19,7 +20,7 @@ export function FavouriteButton({
   color,
 }: {
   itemId: string;
-  variant?: 'round' | 'icon';
+  variant?: 'pill' | 'icon';
   color?: string;
 }) {
   const { colors } = useTheme();
@@ -42,30 +43,34 @@ export function FavouriteButton({
     }
   };
 
-  const round = variant === 'round';
+
+  if (variant === 'pill') {
+    return (
+      <ActionPill
+        label={isFavourite ? 'Liked' : 'Like'}
+        hint={isFavourite ? 'Remove from likes' : 'Add to likes'}
+        active={isFavourite}
+        onPress={onPress}
+        icon={
+          <Animated.View style={popStyle}>
+            <Heart size={17} color={isFavourite ? colors.accent : colors.text} fill={isFavourite ? colors.accent : 'none'} />
+          </Animated.View>
+        }
+      />
+    );
+  }
 
   return (
     <Pressable
       onPress={onPress}
-      hitSlop={variant === 'icon' ? 6 : 0}
+      hitSlop={6}
       accessibilityRole="button"
       accessibilityLabel={isFavourite ? 'Remove from likes' : 'Add to likes'}
       accessibilityState={{ selected: isFavourite }}
-      style={({ pressed }) => ({
-        width: 44,
-        height: 44,
-        alignItems: 'center',
-        justifyContent: 'center',
-        ...(round ? { borderRadius: 22, backgroundColor: isFavourite ? colors.primarySoft : colors.surfaceAlt } : null),
-        opacity: pressed ? 0.6 : 1,
-      })}
+      style={({ pressed }) => ({ width: 44, height: 44, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.6 : 1 })}
     >
       <Animated.View style={popStyle}>
-        <Heart
-          size={round ? 20 : 24}
-          color={round && isFavourite ? colors.accent : ink}
-          fill={isFavourite ? (round ? colors.accent : ink) : 'none'}
-        />
+        <Heart size={24} color={ink} fill={isFavourite ? ink : 'none'} />
       </Animated.View>
     </Pressable>
   );

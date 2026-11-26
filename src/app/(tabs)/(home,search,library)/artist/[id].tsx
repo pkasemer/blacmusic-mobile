@@ -15,6 +15,7 @@ import { Avatar } from '@/components/Avatar';
 import { Card } from '@/components/Card';
 import { DetailHero, HeroCover, HeroMeta, useHeroCoverSize, useHeroScroll } from '@/components/DetailHero';
 import { AlbumShelf, ArtistShelf } from '@/components/MusicShelf';
+import { ShareLinkButton } from '@/components/CollectionActions';
 import { DetailActions } from '@/components/DetailActions';
 import { ScreenState } from '@/components/ScreenState';
 import { Text } from '@/components/Text';
@@ -54,7 +55,9 @@ function FollowButton({ artist }: { artist: Artist }) {
       accessibilityState={{ selected: following }}
       accessibilityLabel={following ? `Following ${artist.name}. Tap to unfollow` : `Follow ${artist.name}`}
       style={({ pressed }) => ({
+        flexGrow: 1,
         height: 44,
+        alignItems: 'center',
         justifyContent: 'center',
         paddingHorizontal: 24,
         borderRadius: radius.pill,
@@ -140,7 +143,12 @@ export default function ArtistScreen() {
         <DetailActions
           items={tracks}
           source={{ type: 'artist', id: data.id, name: data.name }}
-          tools={data.id !== ownArtistId ? <FollowButton artist={data} /> : null}
+          tools={
+            <>
+              {data.id !== ownArtistId ? <FollowButton artist={data} /> : null}
+              <ShareLinkButton label={`Share ${data.name}`} message={`Listen to ${data.name} on Blac`} path={`/artist/${data.id}`} />
+            </>
+          }
         />
 
         {tracks.length > 0 ? (

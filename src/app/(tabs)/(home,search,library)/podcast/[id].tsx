@@ -4,6 +4,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useEpisodes, usePodcasts } from '@/api/blac/queries';
 import { playQueue } from '@/audio/music/musicEngine';
 import { Artwork } from '@/components/Artwork';
+import { ShareLinkButton } from '@/components/CollectionActions';
+import { DetailActions } from '@/components/DetailActions';
 import { ScreenState } from '@/components/ScreenState';
 import { Text } from '@/components/Text';
 import { TrackRow } from '@/components/TrackRow';
@@ -25,7 +27,8 @@ export default function PodcastScreen() {
       keyExtractor={(e) => e.id}
       renderItem={({ item, index }) => <TrackRow item={item} onPress={() => playQueue(episodes.data ?? [], index, { source: { type: 'podcast', id, name: podcast?.title ?? 'Podcast' } })} />}
       ListHeaderComponent={
-        <View style={{ alignItems: 'center', gap: 10, padding: 20, paddingBottom: 12 }}>
+        <View style={{ paddingBottom: 12 }}>
+        <View style={{ alignItems: 'center', gap: 10, padding: 20, paddingBottom: 30 }}>
           <Artwork id={id} logoUrl={podcast?.artworkUrl ?? null} size={180} />
           <Text variant="title" style={{ textAlign: 'center' }}>
             {podcast?.title ?? 'Podcast'}
@@ -38,6 +41,19 @@ export default function PodcastScreen() {
               {podcast.description}
             </Text>
           ) : null}
+        </View>
+        <DetailActions
+          items={episodes.data ?? []}
+          source={{ type: 'podcast', id, name: podcast?.title ?? 'Podcast' }}
+          shuffle={false}
+          tools={
+            <ShareLinkButton
+              label={`Share ${podcast?.title ?? 'this podcast'}`}
+              message={`Listen to the podcast "${podcast?.title ?? 'Podcast'}" on Blac`}
+              path={`/podcast/${id}`}
+            />
+          }
+        />
         </View>
       }
       ListEmptyComponent={

@@ -10,7 +10,7 @@ import { usePlaylist } from '@/api/blac/queries';
 import { playQueue } from '@/audio/music/musicEngine';
 import { DownloadAllButton, ShareLinkButton } from '@/components/CollectionActions';
 import { DetailHero, HeroCover, HeroMeta, HeroTitle, useHeroCoverSize, useHeroScroll } from '@/components/DetailHero';
-import { DetailActions, RoundButton } from '@/components/DetailActions';
+import { ActionPill, DetailActions } from '@/components/DetailActions';
 import { PlaylistCover } from '@/components/PlaylistCover';
 import { PlaylistFormSheet } from '@/components/PlaylistSheets';
 import { ScreenState } from '@/components/ScreenState';
@@ -125,15 +125,15 @@ export default function PlaylistScreen() {
                 path={`/playlist/${playlist.id}`}
               />
               {mine ? (
-                <RoundButton
-                  label="Edit this playlist"
+                <ActionPill
+                  label="Edit"
+                  hint="Edit this playlist"
+                  icon={<Pencil size={17} color={colors.text} />}
                   onPress={() => {
                     haptics.select();
                     setEditing(true);
                   }}
-                >
-                  <Pencil size={18} color={colors.text} />
-                </RoundButton>
+                />
               ) : null}
             </>
           }

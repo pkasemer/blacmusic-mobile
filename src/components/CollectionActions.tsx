@@ -6,10 +6,10 @@ import { cancelDownload, downloadBlockReason, downloadItem } from '@/offline/dow
 import { useDownloadStore } from '@/store/downloadStore';
 import { useTheme } from '@/theme';
 import { haptics } from '@/utils/haptics';
-import { RoundButton } from './DetailActions';
+import { ActionPill } from './DetailActions';
 
 /**
- * Share button for an album or playlist: opens the system share sheet with a message and a link that opens it in
+ * Share button for an artist, album, playlist, song or podcast: opens the system share sheet with a message and a link that opens it in
  * Blac (`path` such as `/album/<id>`; the app's own link scheme is added).
  */
 export function ShareLinkButton({ label, message, path }: { label: string; message: string; path: string }) {
@@ -24,15 +24,13 @@ export function ShareLinkButton({ label, message, path }: { label: string; messa
     }
   };
   return (
-    <RoundButton label={label} onPress={share}>
-      <Share2 size={18} color={colors.text} />
-    </RoundButton>
+    <ActionPill label="Share" hint={label} onPress={share} icon={<Share2 size={17} color={colors.text} />} />
   );
 }
 
 /**
- * Download for offline listening. Saves every track the artist allows to be downloaded. The icon shows the state:
- * a download arrow, a spinner while saving, or a tick once everything is on the phone (tap to remove).
+ * Download for offline listening. Saves every track the artist allows to be downloaded. The button shows the state:
+ * Download, the count while saving, or Downloaded once everything is on the phone (tap to remove).
  * `what` is how the collection is called in messages ("album", "playlist").
  */
 export function DownloadAllButton({ tracks, what }: { tracks: Track[]; what: string }) {
@@ -83,17 +81,24 @@ export function DownloadAllButton({ tracks, what }: { tracks: Track[]; what: str
     }
   };
 
+  const shown = blocked ? 'Downloads off' : allDone ? 'Downloaded' : busy ? `Saving ${done}/${eligible.length}` : 'Download';
   return (
-    <RoundButton label={label} onPress={press} active={allDone || busy}>
-      {allDone ? (
-        <CheckCircle2 size={19} color={colors.accent} />
-      ) : busy ? (
-        <ActivityIndicator size="small" color={colors.accent} />
-      ) : blocked ? (
-        <ArrowDownCircle size={19} color={colors.textTertiary} />
-      ) : (
-        <Download size={18} color={colors.text} />
-      )}
-    </RoundButton>
+    <ActionPill
+      label={shown}
+      hint={label}
+      onPress={press}
+      active={allDone || busy}
+      icon={
+        allDone ? (
+          <CheckCircle2 size={18} color={colors.accent} />
+        ) : busy ? (
+          <ActivityIndicator size="small" color={colors.accent} />
+        ) : blocked ? (
+          <ArrowDownCircle size={18} color={colors.textTertiary} />
+        ) : (
+          <Download size={17} color={colors.text} />
+        )
+      }
+    />
   );
 }

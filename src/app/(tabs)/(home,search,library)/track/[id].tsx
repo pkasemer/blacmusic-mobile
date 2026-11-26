@@ -3,19 +3,19 @@ import { ActivityIndicator, Pressable, View } from 'react-native';
 import Animated from 'react-native-reanimated';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ChevronRight, Disc3, Ellipsis, ListPlus, UserRound } from 'lucide-react-native';
+import { ChevronRight, Disc3, ListEnd, ListPlus, UserRound } from 'lucide-react-native';
 import { useArtistTracks, useTrack } from '@/api/blac/queries';
 import { useTrackCredits } from '@/api/blac/credits';
 import { CreditsSection } from '@/components/CreditsSection';
-import { playQueue } from '@/audio/music/musicEngine';
+import { addToQueue, playQueue } from '@/audio/music/musicEngine';
 import { formatTime } from '@/audio/music/queue';
 import { Artwork } from '@/components/Artwork';
 import { Card } from '@/components/Card';
-import { DownloadAllButton } from '@/components/CollectionActions';
+import { DownloadAllButton, ShareLinkButton } from '@/components/CollectionActions';
 import { Chip } from '@/components/Chip';
 import { DetailHero, HeroCover, HeroMeta, HeroTitle, useHeroCoverSize, useHeroScroll } from '@/components/DetailHero';
 import { FavouriteButton } from '@/components/FavouriteButton';
-import { DetailActions, RoundButton } from '@/components/DetailActions';
+import { ActionPill, DetailActions } from '@/components/DetailActions';
 import { AddToPlaylistSheet } from '@/components/PlaylistSheets';
 import { ScreenState } from '@/components/ScreenState';
 import { ArtistName } from '@/components/ArtistName';
@@ -156,18 +156,15 @@ export default function TrackScreen() {
           currentId={track.id}
           tools={
             <>
-              <FavouriteButton itemId={track.id} variant="round" />
-              {track.preview ? null : (
-                <RoundButton label="Add to playlist" onPress={() => setAdding(true)}>
-                  <ListPlus size={20} color={colors.text} />
-                </RoundButton>
-              )}
+              <FavouriteButton itemId={track.id} variant="pill" />
               <DownloadAllButton tracks={[track]} what="song" />
-              {/* The rest (add to queue, share, radio, the artist) is in the same menu every song row has. */}
+              {/* An unpublished song (an artist's own preview) cannot be shared, queued or added to a playlist. */}
               {track.preview ? null : (
-                <RoundButton label="More options, including add to queue and share" onPress={() => menu.open(track)}>
-                  <Ellipsis size={20} color={colors.text} />
-                </RoundButton>
+                <>
+                  <ShareLinkButton label={`Share ${track.title}`} message={`Listen to "${track.title}" by ${track.artistName} on Blac`} path={`/track/${track.id}`} />
+                  <ActionPill label="Add to queue" icon={<ListEnd size={18} color={colors.text} />} onPress={() => addToQueue(track)} />
+                  <ActionPill label="Add to playlist" icon={<ListPlus size={18} color={colors.text} />} onPress={() => setAdding(true)} />
+                </>
               )}
             </>
           }
