@@ -5,9 +5,17 @@ import { playQueue, toggleMusicPlayback } from '@/audio/music/musicEngine';
 import { sameSource, type PlaybackSource } from '@/audio/music/source';
 import type { Playable } from '@/domain/types';
 import { useMusicStore } from '@/store/musicStore';
-import { radius, useTheme } from '@/theme';
+import { lightColors, radius, useTheme } from '@/theme';
 import { haptics } from '@/utils/haptics';
 import { Text } from './Text';
+
+/** The colours of every button here except Play: white with black text in dark mode, soft grey in light mode. */
+export function useSecondaryButton() {
+  const { colors, isDark } = useTheme();
+  return isDark
+    ? { fill: '#FFFFFF', activeFill: '#FFFFFF', ink: '#000000', accent: lightColors.accent, muted: lightColors.textTertiary }
+    : { fill: colors.surfaceAlt, activeFill: colors.primarySoft, ink: colors.text, accent: colors.accent, muted: colors.textTertiary };
+}
 
 /**
  * A solid pill with an icon and a word, for a page's own actions: download, share, like and so on. Pills in a row
@@ -27,7 +35,7 @@ export function ActionPill({
   hint?: string;
   active?: boolean;
 }) {
-  const { colors } = useTheme();
+  const button = useSecondaryButton();
   return (
     <Pressable
       onPress={onPress}
@@ -43,12 +51,12 @@ export function ActionPill({
         gap: 7,
         paddingHorizontal: 16,
         borderRadius: radius.pill,
-        backgroundColor: active ? colors.primarySoft : colors.surfaceAlt,
+        backgroundColor: active ? button.activeFill : button.fill,
         opacity: pressed ? 0.7 : 1,
       })}
     >
       {icon}
-      <Text variant="bodyStrong" numberOfLines={1}>
+      <Text variant="bodyStrong" numberOfLines={1} style={{ color: button.ink }}>
         {label}
       </Text>
     </Pressable>
@@ -58,6 +66,7 @@ export function ActionPill({
 /** One of the two wide buttons: Play (purple) and Shuffle. */
 function WideButton({ label, icon, onPress, main }: { label: string; icon: ReactNode; onPress: () => void; main?: boolean }) {
   const { colors } = useTheme();
+  const button = useSecondaryButton();
   return (
     <Pressable
       onPress={onPress}
@@ -71,12 +80,12 @@ function WideButton({ label, icon, onPress, main }: { label: string; icon: React
         justifyContent: 'center',
         gap: 8,
         borderRadius: radius.pill,
-        backgroundColor: main ? colors.primary : colors.surfaceAlt,
+        backgroundColor: main ? colors.primary : button.fill,
         opacity: pressed ? 0.8 : 1,
       })}
     >
       {icon}
-      <Text variant="bodyStrong" color={main ? 'onPrimary' : 'text'}>
+      <Text variant="bodyStrong" style={{ color: main ? colors.onPrimary : button.ink }}>
         {label}
       </Text>
     </Pressable>
@@ -105,6 +114,7 @@ export function DetailActions({
   tools?: ReactNode;
 }) {
   const { colors } = useTheme();
+  const button = useSecondaryButton();
   const isThis = useMusicStore((s) => s.active && (currentId ? s.queue[s.index]?.id === currentId : sameSource(s.source, source)));
   const playing = useMusicStore((s) => s.playing);
   const buffering = useMusicStore((s) => s.buffering);
@@ -134,7 +144,7 @@ export function DetailActions({
           {canShuffle ? (
             <WideButton
               label="Shuffle"
-              icon={<Shuffle size={18} color={colors.text} />}
+              icon={<Shuffle size={18} color={button.ink} />}
               onPress={() => {
                 haptics.select();
                 playQueue(items, Math.floor(Math.random() * items.length), { shuffle: true, source });

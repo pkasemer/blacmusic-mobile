@@ -4,16 +4,15 @@ import { ArrowDownCircle, CheckCircle2, Download, Share2 } from 'lucide-react-na
 import type { Track } from '@/domain/types';
 import { cancelDownload, downloadBlockReason, downloadItem } from '@/offline/downloads';
 import { useDownloadStore } from '@/store/downloadStore';
-import { useTheme } from '@/theme';
 import { haptics } from '@/utils/haptics';
-import { ActionPill } from './DetailActions';
+import { ActionPill, useSecondaryButton } from './DetailActions';
 
 /**
  * Share button for an artist, album, playlist, song or podcast: opens the system share sheet with a message and a link that opens it in
  * Blac (`path` such as `/album/<id>`; the app's own link scheme is added).
  */
 export function ShareLinkButton({ label, message, path }: { label: string; message: string; path: string }) {
-  const { colors } = useTheme();
+  const button = useSecondaryButton();
   const share = async () => {
     haptics.select();
     const url = Linking.createURL(path);
@@ -24,7 +23,7 @@ export function ShareLinkButton({ label, message, path }: { label: string; messa
     }
   };
   return (
-    <ActionPill label="Share" hint={label} onPress={share} icon={<Share2 size={17} color={colors.text} />} />
+    <ActionPill label="Share" hint={label} onPress={share} icon={<Share2 size={17} color={button.ink} />} />
   );
 }
 
@@ -34,7 +33,7 @@ export function ShareLinkButton({ label, message, path }: { label: string; messa
  * `what` is how the collection is called in messages ("album", "playlist").
  */
 export function DownloadAllButton({ tracks, what }: { tracks: Track[]; what: string }) {
-  const { colors } = useTheme();
+  const button = useSecondaryButton();
   const items = useDownloadStore((s) => s.items);
   const eligible = tracks.filter((t) => !downloadBlockReason(t));
   const entries = eligible.map((t) => items[t.id]);
@@ -90,13 +89,13 @@ export function DownloadAllButton({ tracks, what }: { tracks: Track[]; what: str
       active={allDone || busy}
       icon={
         allDone ? (
-          <CheckCircle2 size={18} color={colors.accent} />
+          <CheckCircle2 size={18} color={button.accent} />
         ) : busy ? (
-          <ActivityIndicator size="small" color={colors.accent} />
+          <ActivityIndicator size="small" color={button.accent} />
         ) : blocked ? (
-          <ArrowDownCircle size={18} color={colors.textTertiary} />
+          <ArrowDownCircle size={18} color={button.muted} />
         ) : (
-          <Download size={17} color={colors.text} />
+          <Download size={17} color={button.ink} />
         )
       }
     />

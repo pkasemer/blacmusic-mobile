@@ -12,11 +12,18 @@ import Animated, {
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import { useArtworkPaletteState } from '@/hooks/useArtworkTint';
 import { useTheme } from '@/theme';
-import { InkContext, useBackdropInk } from '@/theme/ink';
+import { InkContext, type Ink } from '@/theme/ink';
 import { TintBlobs } from './PlayerBackdrop';
 import { Text } from './Text';
 
 const FADE_HEIGHT = 90;
+/**
+ * Hero text follows the theme, never the picture: white in dark mode, black in light mode. A veil over the picture's
+ * colours (darkening or lightening them) keeps it readable on any cover.
+ */
+const DARK_INK: Ink = { primary: '#FFFFFF', secondary: 'rgba(255,255,255,0.86)', tertiary: 'rgba(255,255,255,0.66)', accent: '#FFFFFF' };
+const DARK_VEIL = 'rgba(0,0,0,0.45)';
+const LIGHT_VEIL = 'rgba(255,255,255,0.55)';
 /** Height of the navigation bar (back button row) under the status bar. Only used where the system does not add it. */
 const NAV_BAR = 56;
 /** The space between the back button and the top of the cover. */
@@ -96,11 +103,12 @@ export function DetailHero({
   scrollY: SharedValue<number>;
   children: ReactNode;
 }) {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const { palette, ready } = useArtworkPaletteState(artwork);
   const tint = palette[0];
   const accents = palette.slice(1);
-  const ink = useBackdropInk(tint);
+  // `null` keeps the theme's own text colours, which is right in light mode.
+  const ink = isDark ? DARK_INK : null;
   const focused = useIsFocused();
   const insets = useSafeAreaInsets();
   // The colour layer has a fixed size from the start (it does not wait to measure the page) and is only drawn once the
@@ -124,10 +132,11 @@ export function DetailHero({
   return (
     <View>
       {/* The header floats over the colour; its back button takes the readable ink colour. */}
-      <Stack.Screen options={{ headerTransparent: true, headerTitle: '', headerShadowVisible: false, headerTintColor: ready ? ink.primary : colors.text }} />
+      <Stack.Screen options={{ headerTransparent: true, headerTitle: '', headerShadowVisible: false, headerTintColor: colors.text }} />
       {ready ? (
         <Animated.View pointerEvents="none" style={[{ position: 'absolute', top: -REACH_UP, left: 0, right: 0, height, overflow: 'hidden' }, stretch]}>
           <TintBlobs tint={tint} accents={accents} active={focused} width={width} height={height} />
+          <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: isDark ? DARK_VEIL : LIGHT_VEIL }} />
           {/* Fade the colour into the page so the content below sits on a clean background. */}
           <View pointerEvents="none" style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: FADE_HEIGHT }}>
             <Svg key={colors.bg} width="100%" height={FADE_HEIGHT}>
@@ -142,7 +151,7 @@ export function DetailHero({
           </View>
         </Animated.View>
       ) : null}
-      <InkContext.Provider value={ready ? ink : null}>
+      <InkContext.Provider value={ink}>
         <View style={{ paddingHorizontal: 20, paddingTop: Platform.OS === 'ios' ? BELOW_BUTTON : insets.top + NAV_BAR + BELOW_BUTTON, paddingBottom: 22, alignItems: 'center', gap: 8 }}>
           {children}
         </View>

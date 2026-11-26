@@ -16,7 +16,7 @@ import { Card } from '@/components/Card';
 import { DetailHero, HeroCover, HeroMeta, useHeroCoverSize, useHeroScroll } from '@/components/DetailHero';
 import { AlbumShelf, ArtistShelf } from '@/components/MusicShelf';
 import { ShareLinkButton } from '@/components/CollectionActions';
-import { DetailActions } from '@/components/DetailActions';
+import { DetailActions, useSecondaryButton } from '@/components/DetailActions';
 import { ScreenState } from '@/components/ScreenState';
 import { Text } from '@/components/Text';
 import { TrackRow } from '@/components/TrackRow';
@@ -30,6 +30,7 @@ const POPULAR_SHOWN = 5;
 /** Follow / Following. The change shows at once; if the server refuses, it goes back and says so. */
 function FollowButton({ artist }: { artist: Artist }) {
   const { colors } = useTheme();
+  const button = useSecondaryButton();
   const key = musicKeys.artist(artist.id);
   const following = artist.following === true;
 
@@ -62,11 +63,11 @@ function FollowButton({ artist }: { artist: Artist }) {
         paddingHorizontal: 24,
         borderRadius: radius.pill,
         // Solid, so it reads on whatever colour the artist's picture puts behind it.
-        backgroundColor: following ? colors.surfaceAlt : colors.text,
+        backgroundColor: following ? button.fill : colors.text,
         opacity: pressed ? 0.7 : 1,
       })}
     >
-      <Text variant="bodyStrong" style={{ color: following ? colors.text : colors.bg }}>
+      <Text variant="bodyStrong" style={{ color: following ? button.ink : colors.bg }}>
         {following ? 'Following' : 'Follow'}
       </Text>
     </Pressable>

@@ -5,7 +5,7 @@ import { Heart } from 'lucide-react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withSequence, withSpring, withTiming } from 'react-native-reanimated';
 import { useFavouritesStore, useIsFavourite } from '@/store/favouritesStore';
 import { useTheme } from '@/theme';
-import { ActionPill } from './DetailActions';
+import { ActionPill, useSecondaryButton } from './DetailActions';
 import { haptics } from '@/utils/haptics';
 
 /**
@@ -29,6 +29,7 @@ export function FavouriteButton({
   const scale = useSharedValue(1);
 
   const ink = color ?? colors.text;
+  const button = useSecondaryButton();
   const popStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
 
   const onPress = () => {
@@ -53,7 +54,7 @@ export function FavouriteButton({
         onPress={onPress}
         icon={
           <Animated.View style={popStyle}>
-            <Heart size={17} color={isFavourite ? colors.accent : colors.text} fill={isFavourite ? colors.accent : 'none'} />
+            <Heart size={17} color={isFavourite ? button.accent : button.ink} fill={isFavourite ? button.accent : 'none'} />
           </Animated.View>
         }
       />

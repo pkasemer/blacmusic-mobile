@@ -10,7 +10,7 @@ import { usePlaylist } from '@/api/blac/queries';
 import { playQueue } from '@/audio/music/musicEngine';
 import { DownloadAllButton, ShareLinkButton } from '@/components/CollectionActions';
 import { DetailHero, HeroCover, HeroMeta, HeroTitle, useHeroCoverSize, useHeroScroll } from '@/components/DetailHero';
-import { ActionPill, DetailActions } from '@/components/DetailActions';
+import { ActionPill, DetailActions, useSecondaryButton } from '@/components/DetailActions';
 import { PlaylistCover } from '@/components/PlaylistCover';
 import { PlaylistFormSheet } from '@/components/PlaylistSheets';
 import { ScreenState } from '@/components/ScreenState';
@@ -26,6 +26,7 @@ import { formatTotalLength } from '@/utils/format';
 
 /** A playlist: cover, name, who made it, play buttons, and its songs. */
 export default function PlaylistScreen() {
+  const button = useSecondaryButton();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
@@ -128,7 +129,7 @@ export default function PlaylistScreen() {
                 <ActionPill
                   label="Edit"
                   hint="Edit this playlist"
-                  icon={<Pencil size={17} color={colors.text} />}
+                  icon={<Pencil size={17} color={button.ink} />}
                   onPress={() => {
                     haptics.select();
                     setEditing(true);

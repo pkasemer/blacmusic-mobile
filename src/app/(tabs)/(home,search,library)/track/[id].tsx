@@ -15,7 +15,7 @@ import { DownloadAllButton, ShareLinkButton } from '@/components/CollectionActio
 import { Chip } from '@/components/Chip';
 import { DetailHero, HeroCover, HeroMeta, HeroTitle, useHeroCoverSize, useHeroScroll } from '@/components/DetailHero';
 import { FavouriteButton } from '@/components/FavouriteButton';
-import { ActionPill, DetailActions } from '@/components/DetailActions';
+import { ActionPill, DetailActions, useSecondaryButton } from '@/components/DetailActions';
 import { AddToPlaylistSheet } from '@/components/PlaylistSheets';
 import { ScreenState } from '@/components/ScreenState';
 import { ArtistName } from '@/components/ArtistName';
@@ -82,6 +82,7 @@ function LinkRow({ icon, label, detail, onPress, last }: { icon: React.ReactNode
 
 /** A song's page: cover, who made it, a big Play button, its facts, links to the album and artist, and more from the artist. */
 export default function TrackScreen() {
+  const button = useSecondaryButton();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
@@ -162,8 +163,8 @@ export default function TrackScreen() {
               {track.preview ? null : (
                 <>
                   <ShareLinkButton label={`Share ${track.title}`} message={`Listen to "${track.title}" by ${track.artistName} on Blac`} path={`/track/${track.id}`} />
-                  <ActionPill label="Add to queue" icon={<ListEnd size={18} color={colors.text} />} onPress={() => addToQueue(track)} />
-                  <ActionPill label="Add to playlist" icon={<ListPlus size={18} color={colors.text} />} onPress={() => setAdding(true)} />
+                  <ActionPill label="Add to queue" icon={<ListEnd size={18} color={button.ink} />} onPress={() => addToQueue(track)} />
+                  <ActionPill label="Add to playlist" icon={<ListPlus size={18} color={button.ink} />} onPress={() => setAdding(true)} />
                 </>
               )}
             </>
