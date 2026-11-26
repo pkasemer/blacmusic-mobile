@@ -3,19 +3,19 @@ import { ActivityIndicator, Pressable, View } from 'react-native';
 import Animated from 'react-native-reanimated';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ChevronRight, Disc3, ListEnd, ListPlus, Play, UserRound } from 'lucide-react-native';
+import { ChevronRight, Disc3, Ellipsis, ListPlus, UserRound } from 'lucide-react-native';
 import { useArtistTracks, useTrack } from '@/api/blac/queries';
 import { useTrackCredits } from '@/api/blac/credits';
 import { CreditsSection } from '@/components/CreditsSection';
-import { addToQueue, playQueue } from '@/audio/music/musicEngine';
+import { playQueue } from '@/audio/music/musicEngine';
 import { formatTime } from '@/audio/music/queue';
 import { Artwork } from '@/components/Artwork';
 import { Card } from '@/components/Card';
-import { DownloadAllButton, ShareLinkButton } from '@/components/CollectionActions';
+import { DownloadAllButton } from '@/components/CollectionActions';
 import { Chip } from '@/components/Chip';
 import { DetailHero, HeroCover, HeroMeta, HeroTitle, useHeroCoverSize, useHeroScroll } from '@/components/DetailHero';
 import { FavouriteButton } from '@/components/FavouriteButton';
-import { BarButton } from '@/components/PlayAllBar';
+import { DetailActions, RoundButton } from '@/components/DetailActions';
 import { AddToPlaylistSheet } from '@/components/PlaylistSheets';
 import { ScreenState } from '@/components/ScreenState';
 import { ArtistName } from '@/components/ArtistName';
@@ -118,7 +118,6 @@ export default function TrackScreen() {
 
   const others = (more.data ?? []).filter((t) => t.id !== track.id);
   const released = formatDate(track.releaseDate);
-  const playThis = () => playQueue([track, ...others], 0, { shuffle: false, source: { type: 'song', id: track.id, name: track.title } });
 
   return (
     <TabScreen>
@@ -151,47 +150,28 @@ export default function TrackScreen() {
           {track.explicit ? <Chip label="Explicit" glass /> : null}
         </DetailHero>
 
-        {/* Big Play button with the heart beside it */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 20 }}>
-          <Pressable
-            onPress={playThis}
-            accessibilityRole="button"
-            accessibilityLabel={`Play ${track.title}`}
-            style={({ pressed }) => ({
-              flex: 1,
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 8,
-              height: 50,
-              borderRadius: 14,
-              backgroundColor: colors.primary,
-              opacity: pressed ? 0.85 : 1,
-            })}
-          >
-            <Play size={17} color={colors.onPrimary} fill={colors.onPrimary} strokeWidth={0} />
-            <Text variant="bodyStrong" color="onPrimary">
-              Play
-            </Text>
-          </Pressable>
-          <FavouriteButton itemId={track.id} variant="box" />
-        </View>
-
-        {/* Add to the queue or a playlist, save for offline, share */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 16, marginTop: -8 }}>
-          {track.preview ? null : (
-            <BarButton label="Add to queue" onPress={() => addToQueue(track)}>
-              <ListEnd size={20} color={colors.text} />
-            </BarButton>
-          )}
-          {track.preview ? null : (
-            <BarButton label="Add to playlist" onPress={() => setAdding(true)}>
-              <ListPlus size={20} color={colors.text} />
-            </BarButton>
-          )}
-          <DownloadAllButton tracks={[track]} what="song" />
-          <ShareLinkButton label={`Share ${track.title}`} message={`Listen to "${track.title}" by ${track.artistName} on Blac`} path={`/track/${track.id}`} />
-        </View>
+        <DetailActions
+          items={[track, ...others]}
+          source={{ type: 'song', id: track.id, name: track.title }}
+          currentId={track.id}
+          tools={
+            <>
+              <FavouriteButton itemId={track.id} variant="round" />
+              {track.preview ? null : (
+                <RoundButton label="Add to playlist" onPress={() => setAdding(true)}>
+                  <ListPlus size={20} color={colors.text} />
+                </RoundButton>
+              )}
+              <DownloadAllButton tracks={[track]} what="song" />
+              {/* The rest (add to queue, share, radio, the artist) is in the same menu every song row has. */}
+              {track.preview ? null : (
+                <RoundButton label="More options, including add to queue and share" onPress={() => menu.open(track)}>
+                  <Ellipsis size={20} color={colors.text} />
+                </RoundButton>
+              )}
+            </>
+          }
+        />
 
         <View style={{ gap: 12, paddingHorizontal: 20 }}>
           <Text variant="title">Details</Text>

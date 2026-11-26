@@ -4,13 +4,13 @@ import { Pressable } from 'react-native';
 import { Heart } from 'lucide-react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withSequence, withSpring, withTiming } from 'react-native-reanimated';
 import { useFavouritesStore, useIsFavourite } from '@/store/favouritesStore';
-import { radius, useTheme } from '@/theme';
+import { useTheme } from '@/theme';
 import { haptics } from '@/utils/haptics';
 
 /**
  * Heart button: tap to add the song or episode to your likes, tap again to remove it.
  *
- * - `box`: a bordered 52 pt square, matching the other action buttons on the details sheet.
+ * - `round`: a 44 pt filled circle, matching the other buttons on a details page.
  * - `icon`: a bare 44 pt heart for toolbars and headers, in the colour you pass.
  */
 export function FavouriteButton({
@@ -19,7 +19,7 @@ export function FavouriteButton({
   color,
 }: {
   itemId: string;
-  variant?: 'box' | 'icon';
+  variant?: 'round' | 'icon';
   color?: string;
 }) {
   const { colors } = useTheme();
@@ -42,7 +42,7 @@ export function FavouriteButton({
     }
   };
 
-  const size = variant === 'box' ? 52 : 44;
+  const round = variant === 'round';
 
   return (
     <Pressable
@@ -52,21 +52,19 @@ export function FavouriteButton({
       accessibilityLabel={isFavourite ? 'Remove from likes' : 'Add to likes'}
       accessibilityState={{ selected: isFavourite }}
       style={({ pressed }) => ({
-        width: size,
-        height: size,
+        width: 44,
+        height: 44,
         alignItems: 'center',
         justifyContent: 'center',
-        ...(variant === 'box'
-          ? { borderRadius: radius.md, borderWidth: 1, borderColor: isFavourite ? colors.accent : colors.border }
-          : null),
+        ...(round ? { borderRadius: 22, backgroundColor: isFavourite ? colors.primarySoft : colors.surfaceAlt } : null),
         opacity: pressed ? 0.6 : 1,
       })}
     >
       <Animated.View style={popStyle}>
         <Heart
-          size={variant === 'box' ? 22 : 24}
-          color={variant === 'box' && isFavourite ? colors.accent : ink}
-          fill={isFavourite ? (variant === 'box' ? colors.accent : ink) : 'none'}
+          size={round ? 20 : 24}
+          color={round && isFavourite ? colors.accent : ink}
+          fill={isFavourite ? (round ? colors.accent : ink) : 'none'}
         />
       </Animated.View>
     </Pressable>

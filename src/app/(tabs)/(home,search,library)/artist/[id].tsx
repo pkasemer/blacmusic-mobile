@@ -15,7 +15,7 @@ import { Avatar } from '@/components/Avatar';
 import { Card } from '@/components/Card';
 import { DetailHero, HeroCover, HeroMeta, useHeroCoverSize, useHeroScroll } from '@/components/DetailHero';
 import { AlbumShelf, ArtistShelf } from '@/components/MusicShelf';
-import { PlayAllBar } from '@/components/PlayAllBar';
+import { DetailActions } from '@/components/DetailActions';
 import { ScreenState } from '@/components/ScreenState';
 import { Text } from '@/components/Text';
 import { TrackRow } from '@/components/TrackRow';
@@ -54,20 +54,23 @@ function FollowButton({ artist }: { artist: Artist }) {
       accessibilityState={{ selected: following }}
       accessibilityLabel={following ? `Following ${artist.name}. Tap to unfollow` : `Follow ${artist.name}`}
       style={({ pressed }) => ({
-        paddingHorizontal: 26,
-        paddingVertical: 10,
+        height: 44,
+        justifyContent: 'center',
+        paddingHorizontal: 24,
         borderRadius: radius.pill,
-        borderWidth: 1.5,
-        borderColor: following ? colors.borderStrong : colors.text,
+        // Solid, so it reads on whatever colour the artist's picture puts behind it.
+        backgroundColor: following ? colors.surfaceAlt : colors.text,
         opacity: pressed ? 0.7 : 1,
       })}
     >
-      <Text variant="bodyStrong">{following ? 'Following' : 'Follow'}</Text>
+      <Text variant="bodyStrong" style={{ color: following ? colors.text : colors.bg }}>
+        {following ? 'Following' : 'Follow'}
+      </Text>
     </Pressable>
   );
 }
 
-/** An artist's page: picture, name, play buttons, popular songs, albums and a short bio. */
+/** An artist's page: picture, name, follow and play buttons, popular songs, albums and a short bio. */
 export default function ArtistScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { colors } = useTheme();
@@ -132,14 +135,13 @@ export default function ArtistScreen() {
             {data.verification === 'verified' ? <VerifiedBadge size={24} /> : null}
           </View>
           {stats.length > 0 ? <HeroMeta>{stats.join(' · ')}</HeroMeta> : null}
-          {data.id !== ownArtistId ? (
-            <View style={{ paddingTop: 6 }}>
-              <FollowButton artist={data} />
-            </View>
-          ) : null}
         </DetailHero>
 
-        <PlayAllBar items={tracks} source={{ type: 'artist', id: data.id, name: data.name }} />
+        <DetailActions
+          items={tracks}
+          source={{ type: 'artist', id: data.id, name: data.name }}
+          tools={data.id !== ownArtistId ? <FollowButton artist={data} /> : null}
+        />
 
         {tracks.length > 0 ? (
           <View style={{ gap: 8 }}>

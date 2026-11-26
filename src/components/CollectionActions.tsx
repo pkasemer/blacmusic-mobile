@@ -6,7 +6,7 @@ import { cancelDownload, downloadBlockReason, downloadItem } from '@/offline/dow
 import { useDownloadStore } from '@/store/downloadStore';
 import { useTheme } from '@/theme';
 import { haptics } from '@/utils/haptics';
-import { BarButton } from './PlayAllBar';
+import { RoundButton } from './DetailActions';
 
 /**
  * Share button for an album or playlist: opens the system share sheet with a message and a link that opens it in
@@ -24,9 +24,9 @@ export function ShareLinkButton({ label, message, path }: { label: string; messa
     }
   };
   return (
-    <BarButton label={label} onPress={share}>
+    <RoundButton label={label} onPress={share}>
       <Share2 size={18} color={colors.text} />
-    </BarButton>
+    </RoundButton>
   );
 }
 
@@ -84,7 +84,7 @@ export function DownloadAllButton({ tracks, what }: { tracks: Track[]; what: str
   };
 
   return (
-    <BarButton label={label} onPress={press} active={allDone || busy}>
+    <RoundButton label={label} onPress={press} active={allDone || busy}>
       {allDone ? (
         <CheckCircle2 size={19} color={colors.accent} />
       ) : busy ? (
@@ -94,6 +94,6 @@ export function DownloadAllButton({ tracks, what }: { tracks: Track[]; what: str
       ) : (
         <Download size={18} color={colors.text} />
       )}
-    </BarButton>
+    </RoundButton>
   );
 }

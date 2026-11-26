@@ -10,7 +10,7 @@ import { playQueue } from '@/audio/music/musicEngine';
 import { Artwork } from '@/components/Artwork';
 import { DetailHero, HeroCover, HeroMeta, HeroTitle, useHeroCoverSize, useHeroScroll } from '@/components/DetailHero';
 import { DownloadAllButton, ShareLinkButton } from '@/components/CollectionActions';
-import { PlayAllBar } from '@/components/PlayAllBar';
+import { DetailActions } from '@/components/DetailActions';
 import { ScreenState } from '@/components/ScreenState';
 import { ArtistName } from '@/components/ArtistName';
 import { Text } from '@/components/Text';
@@ -98,17 +98,17 @@ export default function AlbumScreen() {
           ) : null}
         </DetailHero>
 
-        <PlayAllBar
+        <DetailActions
           items={tracks}
           source={{ type: 'album', id: album.id, name: album.title }}
-          extra={
+          tools={
             <>
+              <DownloadAllButton tracks={tracks} what={album.type === 'single' ? 'single' : 'album'} />
               <ShareLinkButton
                 label={`Share ${album.title}`}
                 message={`Listen to the ${album.type === 'single' ? 'single' : 'album'} "${album.title}" by ${album.artistName} on Blac`}
                 path={`/album/${album.id}`}
               />
-              <DownloadAllButton tracks={tracks} what={album.type === 'single' ? 'single' : 'album'} />
             </>
           }
         />

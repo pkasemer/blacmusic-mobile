@@ -10,7 +10,7 @@ import { usePlaylist } from '@/api/blac/queries';
 import { playQueue } from '@/audio/music/musicEngine';
 import { DownloadAllButton, ShareLinkButton } from '@/components/CollectionActions';
 import { DetailHero, HeroCover, HeroMeta, HeroTitle, useHeroCoverSize, useHeroScroll } from '@/components/DetailHero';
-import { BarButton, PlayAllBar } from '@/components/PlayAllBar';
+import { DetailActions, RoundButton } from '@/components/DetailActions';
 import { PlaylistCover } from '@/components/PlaylistCover';
 import { PlaylistFormSheet } from '@/components/PlaylistSheets';
 import { ScreenState } from '@/components/ScreenState';
@@ -113,19 +113,19 @@ export default function PlaylistScreen() {
           <HeroMeta>{meta}</HeroMeta>
         </DetailHero>
 
-        <PlayAllBar
+        <DetailActions
           items={tracks}
           source={{ type: 'playlist', id: playlist.id, name: playlist.name }}
-          extra={
+          tools={
             <>
+              <DownloadAllButton tracks={tracks} what="playlist" />
               <ShareLinkButton
                 label={`Share ${playlist.name}`}
                 message={`Listen to the playlist "${playlist.name}" on Blac`}
                 path={`/playlist/${playlist.id}`}
               />
-              <DownloadAllButton tracks={tracks} what="playlist" />
               {mine ? (
-                <BarButton
+                <RoundButton
                   label="Edit this playlist"
                   onPress={() => {
                     haptics.select();
@@ -133,7 +133,7 @@ export default function PlaylistScreen() {
                   }}
                 >
                   <Pencil size={18} color={colors.text} />
-                </BarButton>
+                </RoundButton>
               ) : null}
             </>
           }

@@ -17,6 +17,13 @@ export type PlaybackSource =
   | { type: 'recent' }
   | { type: 'trending' };
 
+/** True when two sources are the same list: the same playlist, album, artist, search and so on. */
+export function sameSource(a: PlaybackSource | null, b: PlaybackSource): boolean {
+  if (!a || a.type !== b.type) return false;
+  const which = (s: PlaybackSource) => ('id' in s ? s.id : 'query' in s ? s.query : 'name' in s ? s.name : '');
+  return which(a) === which(b);
+}
+
 /** What to print: a short kind ("Playlist") and, when there is one, the name ("Late Night Drive"). */
 export function describeSource(source: PlaybackSource): { kind: string; name?: string } {
   switch (source.type) {
