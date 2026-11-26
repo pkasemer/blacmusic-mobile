@@ -118,7 +118,7 @@ export function getPlaylist(): AudioPlaylist {
  * plays. Links are fetched first. Items that cannot be linked are dropped from the queue; if the starting
  * item itself cannot be linked, nothing plays.
  */
-async function startQueue(items: Playable[], startIndex: number, repeat: RepeatMode, positionSec = 0) {
+async function startQueue(items: Playable[], startIndex: number, repeat: RepeatMode, positionSec = 0, autoplay = true) {
   const seq = ++loadSeq;
   const player = getPlaylist();
   player.pause();
@@ -150,7 +150,8 @@ async function startQueue(items: Playable[], startIndex: number, repeat: RepeatM
   if (index > 0) player.skipTo(index);
   if (positionSec > 0) await player.seekTo(positionSec);
   activateLockScreen(startItem);
-  player.play();
+  if (autoplay) player.play();
+  else useMusicStore.getState().set({ playing: false, buffering: false });
 }
 
 /**
@@ -330,6 +331,38 @@ export function removeFromQueue(index: number) {
     originalQueue: state.originalQueue.filter((x) => x.id !== removed.id),
   });
   getPlaylist().remove(index);
+}
+
+/**
+ * Takes songs that are no longer on Blac out of the player. If the one loaded now is among them, playback stops.
+ * Songs still to come are removed without a break. Removing one already played makes the native player start the
+ * current song over, so in that case the queue is loaded again at the same second, still paused if it was paused.
+ */
+export function dropFromPlayer(ids: ReadonlySet<string>): 'stopped' | 'removed' | null {
+  // Their stream links must not be used again.
+  ids.forEach((id) => links.delete(id));
+  const state = useMusicStore.getState();
+  if (!state.active || !state.queue.some((item) => ids.has(item.id))) return null;
+  const current = state.queue[state.index];
+  if (!current || ids.has(current.id)) {
+    stopMusic();
+    return 'stopped';
+  }
+  if (state.queue.slice(0, state.index).some((item) => ids.has(item.id))) {
+    const queue = state.queue.filter((item) => !ids.has(item.id));
+    const index = queue.indexOf(current);
+    const position = getPlaylist().currentTime;
+    const wasPlaying = state.playing;
+    upcomingSeq++;
+    state.set({ queue, originalQueue: state.originalQueue.filter((item) => !ids.has(item.id)), index });
+    void startQueue(queue, index, state.repeat, position, wasPlaying);
+    return 'removed';
+  }
+  // From the end, so the positions still to be removed do not move.
+  for (let i = state.queue.length - 1; i > state.index; i--) {
+    if (ids.has(useMusicStore.getState().queue[i].id)) removeFromQueue(i);
+  }
+  return 'removed';
 }
 
 /** Stops playback, clears the queue and the lock screen. */
