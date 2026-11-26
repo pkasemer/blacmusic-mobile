@@ -77,6 +77,105 @@ export function restoreUpcoming<T>(queue: readonly T[], index: number, original:
   return [...played, ...queuedAhead(queue, index, waiting), ...after, ...before];
 }
 
+/*
+ * The queue screen. What is still to come is listed in playing order under headings: "queued" songs under one, the
+ * rest of the album or playlist under another. A song can be dragged anywhere; the heading above the spot it is
+ * dropped on decides whether it is queued.
+ */
+
+export type QueueRow<T> = { kind: 'header'; queued: boolean } | { kind: 'song'; entry: T; queued: boolean };
+
+/** The rows for the songs still to come (the first `limit` of them), with a heading wherever the kind changes. */
+export function upcomingRows<T>(queue: readonly T[], index: number, waiting: ReadonlySet<T>, limit = Infinity): QueueRow<T>[] {
+  const rows: QueueRow<T>[] = [];
+  let last: boolean | null = null;
+  for (const entry of queue.slice(index + 1, index + 1 + limit)) {
+    const queued = waiting.has(entry);
+    if (queued !== last) rows.push({ kind: 'header', queued });
+    rows.push({ kind: 'song', entry, queued });
+    last = queued;
+  }
+  return rows;
+}
+
+/**
+ * What dragging the song at row `from` to row `to` means: which song it now follows (`null`: it plays next) and
+ * whether it is queued there. `null` when nothing changes. Nothing can go above the first heading.
+ */
+export function dropAt<T>(rows: readonly QueueRow<T>[], from: number, to: number): { entry: T; after: T | null; queued: boolean } | null {
+  const row = rows[from];
+  if (!row || row.kind !== 'song') return null;
+  const at = Math.max(1, Math.min(to, rows.length - 1));
+  const moved = [...rows.slice(0, from), ...rows.slice(from + 1)];
+  moved.splice(at, 0, row);
+  let after: T | null = null;
+  let queued = row.queued;
+  for (let i = 0; i < at; i++) {
+    const above = moved[i];
+    if (above.kind === 'header') queued = above.queued;
+    else after = above.entry;
+  }
+  return at === from && queued === row.queued ? null : { entry: row.entry, after, queued };
+}
+
+/**
+ * The queue with the upcoming song `entry` moved to follow `after`. If `after` is `null`, or has played since the
+ * drag began, the song goes right after the current one. `null` if `entry` is no longer still to come.
+ */
+export function moveUpcoming<T>(queue: readonly T[], index: number, entry: T, after: T | null): T[] | null {
+  const from = queue.indexOf(entry, index + 1);
+  if (from < 0) return null;
+  const rest = [...queue.slice(0, from), ...queue.slice(from + 1)];
+  const found = after === null ? -1 : rest.indexOf(after, index + 1);
+  const at = found < 0 ? index + 1 : found + 1;
+  return [...rest.slice(0, at), entry, ...rest.slice(at)];
+}
+
+/**
+ * The list's own order (what shuffle off returns to) with `entry` placed as it now stands in the queue: after the
+ * nearest earlier song of the list, or else before the nearest later one.
+ */
+export function placeInList<T>(original: readonly T[], queue: readonly T[], entry: T): T[] {
+  const list = original.filter((x) => x !== entry);
+  const at = queue.indexOf(entry);
+  for (let i = at - 1; i >= 0; i--) {
+    const found = list.indexOf(queue[i]);
+    if (found >= 0) return [...list.slice(0, found + 1), entry, ...list.slice(found + 1)];
+  }
+  for (let i = at + 1; i < queue.length; i++) {
+    const found = list.indexOf(queue[i]);
+    if (found >= 0) return [...list.slice(0, found), entry, ...list.slice(found)];
+  }
+  return [...list, entry];
+}
+
+/** While a row is dragged `dy` points from its place, the row it would land on. Rows may differ in height. */
+export function dragTarget(heights: readonly number[], from: number, dy: number): number {
+  'worklet';
+  let top = 0;
+  const tops: number[] = [];
+  for (let i = 0; i < heights.length; i++) {
+    tops.push(top);
+    top += heights[i];
+  }
+  const upper = tops[from] + dy;
+  const lower = upper + heights[from];
+  let to = from;
+  // Moving down, the lower edge has to pass the middle of a row; moving up, the upper edge. Row 0 is a heading.
+  for (let i = from + 1; i < heights.length; i++) if (lower > tops[i] + heights[i] / 2) to = i;
+  for (let i = from - 1; i >= 1; i--) if (upper < tops[i] + heights[i] / 2) to = i;
+  return to;
+}
+
+/** How far the dragged row ends up from where it started when it lands on `to`. */
+export function dropOffset(heights: readonly number[], from: number, to: number): number {
+  'worklet';
+  let offset = 0;
+  for (let i = from + 1; i <= to; i++) offset += heights[i];
+  for (let i = to; i < from; i++) offset -= heights[i];
+  return offset;
+}
+
 export type RepeatMode = 'off' | 'all' | 'one';
 
 export const nextRepeatMode = (mode: RepeatMode): RepeatMode =>

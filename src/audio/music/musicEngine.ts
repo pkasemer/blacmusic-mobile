@@ -10,7 +10,9 @@ import { haptics } from '@/utils/haptics';
 import type { PlaybackSource } from './source';
 import {
   jumpKeepingQueued,
+  moveUpcoming,
   nextRepeatMode,
+  placeInList,
   queuedAhead,
   queueSlot,
   restoreUpcoming,
@@ -169,13 +171,15 @@ function sourceAtHand(item: Playable): ExpoAudioSource {
 
 /**
  * Brings the native player's songs to come into line with the queue, in the same moment the queue changes. If it
- * waited for links, a tap or the end of a song could meanwhile land on a different song than the one shown.
+ * waited for links, a tap or the end of a song could meanwhile land on a different song than the one shown. Songs
+ * before position `from` have not moved.
  */
-function matchUpcoming() {
+function matchUpcoming(from?: number) {
   const { queue, index } = useMusicStore.getState();
   // Nothing to line up while the native player is still loading (or if it failed to).
   if (getPlaylist().trackCount <= index) return;
-  setNativeTail(index + 1, queue.slice(index + 1).map(sourceAtHand));
+  const start = Math.max(index + 1, from ?? 0);
+  setNativeTail(start, queue.slice(start).map(sourceAtHand));
   void refreshStaleUpcoming();
 }
 
@@ -476,6 +480,31 @@ async function putInQueue(item: Playable, link: Promise<ExpoAudioSource>, asked:
     showToast('Added to queue');
     return;
   }
+}
+
+/**
+ * Moves an upcoming song to follow `after` (or to play next, when `after` is `null` or has played since), as one of the
+ * queued songs or as one of the rest. The playing song is never interrupted.
+ */
+export function moveInQueue(entry: Playable, after: Playable | null, queued: boolean) {
+  catchUp();
+  const state = useMusicStore.getState();
+  if (!state.active) return;
+  const queue = moveUpcoming(state.queue, state.index, entry, after);
+  if (!queue) return;
+  const waiting = new Set(state.waiting);
+  if (queued) waiting.add(entry);
+  else waiting.delete(entry);
+  // A queued song is not part of the list being played. With shuffle off, the list follows the order set here; with
+  // shuffle on, it keeps its own order.
+  let originalQueue = state.originalQueue;
+  if (queued) originalQueue = originalQueue.filter((x) => x !== entry);
+  else if (!state.shuffle || !originalQueue.includes(entry)) originalQueue = placeInList(originalQueue, queue, entry);
+
+  const from = state.queue.indexOf(entry, state.index + 1);
+  const to = queue.indexOf(entry, state.index + 1);
+  state.set({ queue, waiting, originalQueue });
+  if (from !== to) matchUpcoming(Math.min(from, to));
 }
 
 /** Removes an upcoming item from the queue. The current and earlier items cannot be removed this way. */

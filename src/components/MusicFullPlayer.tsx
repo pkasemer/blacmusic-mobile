@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, BackHandler, FlatList, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
-import { Ellipsis, ListMusic, MessageSquareQuote, Moon, Pause, Play, Repeat, Repeat1, Shuffle, SkipBack, SkipForward, X } from 'lucide-react-native';
+import { ActivityIndicator, BackHandler, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { Ellipsis, ListMusic, MessageSquareQuote, Moon, Pause, Play, Repeat, Repeat1, Shuffle, SkipBack, SkipForward } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
@@ -10,9 +10,7 @@ import { scheduleOnRN } from 'react-native-worklets';
 import {
   cycleRepeat,
   nextTrack,
-  playQueueIndex,
   previousTrack,
-  removeFromQueue,
   toggleMusicPlayback,
   toggleShuffle,
 } from '@/audio/music/musicEngine';
@@ -26,6 +24,7 @@ import { ArtistName } from './ArtistName';
 import { Artwork } from './Artwork';
 import { FavouriteButton } from './FavouriteButton';
 import { LyricsView } from './LyricsView';
+import { NowPlaying, QueueList } from './QueueList';
 import { describeSource, sourceRoute } from '@/audio/music/source';
 import { Grain, TintBlobs } from './PlayerBackdrop';
 import { SeekBar } from './SeekBar';
@@ -113,58 +112,6 @@ function Transport({ label, onPress, disabled, children }: { label: string; onPr
     >
       {children}
     </Pressable>
-  );
-}
-
-/** The queue, with the playing item highlighted and the songs you queued marked. Tap to jump, X to remove an upcoming item. */
-function QueueList({ ink }: { ink: Ink }) {
-  const queue = useMusicStore((s) => s.queue);
-  const index = useMusicStore((s) => s.index);
-  const waiting = useMusicStore((s) => s.waiting);
-
-  return (
-    <FlatList
-      data={queue}
-      keyExtractor={(item, i) => `${item.id}-${i}`}
-      initialScrollIndex={Math.min(index, Math.max(0, queue.length - 1))}
-      getItemLayout={(_, i) => ({ length: 60, offset: 60 * i, index: i })}
-      contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 12 }}
-      showsVerticalScrollIndicator={false}
-      renderItem={({ item, index: i }) => {
-        const isCurrent = i === index;
-        return (
-          <View style={{ height: 60, flexDirection: 'row', alignItems: 'center', gap: 12, opacity: i < index ? 0.5 : 1 }}>
-            <Pressable
-              onPress={() => {
-                haptics.select();
-                playQueueIndex(i);
-              }}
-              accessibilityRole="button"
-              accessibilityLabel={`Play ${item.title}`}
-              style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 }}
-            >
-              <Artwork id={item.id} logoUrl={item.artworkUrl} size={44} />
-              <View style={{ flex: 1 }}>
-                <Text variant="bodyStrong" numberOfLines={1} style={{ color: ink.primary, fontWeight: isCurrent ? '700' : '600' }}>
-                  {item.title}
-                </Text>
-                <ArtistName name={subtitleOf(item)} verified={item.kind === 'track' ? item.artistVerified : false} />
-              </View>
-            </Pressable>
-            {i > index && waiting.has(item) ? (
-              <Text variant="caption" style={{ color: ink.tertiary }}>
-                Queued
-              </Text>
-            ) : null}
-            {i > index ? (
-              <Pressable onPress={() => removeFromQueue(i)} hitSlop={10} accessibilityRole="button" accessibilityLabel={`Remove ${item.title} from the queue`}>
-                <X size={18} color={ink.tertiary} />
-              </Pressable>
-            ) : null}
-          </View>
-        );
-      }}
-    />
   );
 }
 
@@ -385,12 +332,16 @@ export function MusicFullPlayer() {
 
           {panel !== 'cover' ? (
                 <View style={{ flex: 1, zIndex: 1 }}>
-                  {/* A small song header on top of lyrics and queue, as in Apple Music */}
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 24, paddingTop: 4, paddingBottom: 12 }}>
-                    <Artwork id={item.id} logoUrl={item.artworkUrl} size={56} />
-                    {titleBlock(true)}
-                    {actions}
-                  </View>
+                  {/* The queue sets what is playing apart in a card; lyrics have a small song header, as in Apple Music */}
+                  {panel === 'queue' ? (
+                    <NowPlaying item={item} title={titleBlock(true)} actions={actions} />
+                  ) : (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 24, paddingTop: 4, paddingBottom: 12 }}>
+                      <Artwork id={item.id} logoUrl={item.artworkUrl} size={56} />
+                      {titleBlock(true)}
+                      {actions}
+                    </View>
+                  )}
                   {panel === 'queue' ? (
                     <View style={{ flex: 1 }}>
                       <View style={{ flexDirection: 'row', gap: 10, paddingHorizontal: 24, paddingBottom: 10 }}>
@@ -417,9 +368,6 @@ export function MusicFullPlayer() {
                           </Text>
                         </Pressable>
                       </View>
-                      <Text variant="label" color="textSecondary" style={{ paddingHorizontal: 24, paddingBottom: 4 }}>
-                        Playing next
-                      </Text>
                       <QueueList ink={ink} />
                     </View>
                   ) : (
