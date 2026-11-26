@@ -4,6 +4,7 @@ import { queryClient } from '@/api/queryClient';
 import { stopMusic } from '@/audio/music/musicEngine';
 import { removeAllDownloads } from '@/offline/downloads';
 import { useArtistStore } from '@/store/artistStore';
+import { bringBackPersonalData, putAwayPersonalData } from '@/auth/personalData';
 import { tokenToRemove } from '@/notifications/push';
 import { useAuthStore } from '@/store/authStore';
 
@@ -20,9 +21,14 @@ export async function syncAccount() {
   }
 }
 
-/** Forgets everything tied to the account on this device: tokens, artist profile, cached lists and offline copies. */
-function forgetAccount() {
+/**
+ * Forgets everything tied to the account on this device: artist profile, cached lists, offline copies, and (set aside
+ * for that account) likes, history, recent searches and where they stopped listening.
+ */
+function forgetAccount(userId: string | undefined) {
+  // Stop first, so nothing writes a position or a history entry after they have been put away.
   stopMusic();
+  putAwayPersonalData(userId);
   removeAllDownloads();
   useArtistStore.getState().clear();
   queryClient.clear();
@@ -55,7 +61,8 @@ export function useSessionSync() {
     if (!USES_BACKEND) return;
     // Runs when the tokens disappear without the user pressing Sign out.
     return useAuthStore.subscribe((state, previous) => {
-      if (previous.refreshToken && !state.refreshToken) forgetAccount();
+      if (previous.refreshToken && !state.refreshToken) forgetAccount(previous.user?.id);
+      else if (!previous.refreshToken && state.refreshToken && state.user) void bringBackPersonalData(state.user.id);
     });
   }, []);
 }

@@ -1,3 +1,4 @@
+import { discardPersonalData } from '@/auth/personalData';
 import { useAuthStore, type AuthUser } from '@/store/authStore';
 import { reachable } from './config';
 import { apiRequest, saveSession } from './http';
@@ -81,7 +82,10 @@ export const authApi = {
    */
   async deleteAccount(password?: string): Promise<void> {
     await apiRequest<void>('/v1/me', { method: 'DELETE', ...(password !== undefined ? { body: { password } } : {}) });
+    const userId = useAuthStore.getState().user?.id;
     useAuthStore.getState().clear();
+    // Clearing sets the account's data aside as for a sign out; a deleted account's data is not kept.
+    if (userId) discardPersonalData(userId);
   },
 
   /**
