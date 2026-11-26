@@ -227,7 +227,7 @@ export default function HomeScreen() {
             ) : null}
             <AlbumShelf title="New releases" albums={newReleases.data} more={{ list: 'new-releases' }} />
             <ArtistShelf title="Featured artists" artists={artists.data} more={{ list: 'featured-artists' }} />
-            <AlbumShelf title="Featured" albums={albums.data} more={{ list: 'featured-albums' }} />
+            <AlbumShelf title="Featured releases" albums={albums.data} more={{ list: 'featured-albums' }} />
             {/* Then the themed playlists: one shelf per editorial group ("Workout", "Throwback"…), named and ordered by the backend. */}
             {groupShelves.length > 0 ? (
               groupShelves.map((g) => (
