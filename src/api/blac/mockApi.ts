@@ -1,3 +1,4 @@
+import type { MorePage } from '@/domain/more';
 import { FREE_STORAGE_BYTES, type Album, type Playlist, type PlaylistGroup, type PlaylistDetail, type AlbumDetail, type Artist, type Episode, type Podcast, type StudioItem, type Track } from '@/domain/types';
 import type { BlacApi, CreateArtistInput } from './api';
 import { albumsFromTracks, artistsFromTracks } from './derive';
@@ -180,6 +181,8 @@ export const mockApi: BlacApi = {
   },
   getSimilarTracks: (track) => delay(TRACKS.filter((t) => t.id !== track.id && (t.genre === track.genre || t.artistId === track.artistId))),
   getFollowedReleases: () => delay<Album[]>([]),
+  // The sample data is too small for a second page.
+  getMorePage: () => delay<MorePage>({ items: [], next: null }),
   setFollowing: () => delay(undefined, 150),
   getRelatedArtists: (artistId) => delay(artistsFromTracks(TRACKS).filter((a) => a.id !== artistId)),
   getRelatedAlbums: (album) => delay(albumsFromTracks(TRACKS).filter((a) => a.id !== album.id)),

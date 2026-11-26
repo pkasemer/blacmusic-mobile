@@ -1,3 +1,4 @@
+import type { MoreItem, MorePage } from '@/domain/more';
 import type {
   Album,
   Playlist,
@@ -273,11 +274,31 @@ const PAGE = 24;
 /** For new releases from followed artists: how many of the most recently followed are read, and how many each. */
 const FOLLOWED_LOOKED_AT = 30;
 const NEW_PER_ARTIST = 3;
+const MORE_PER_ARTIST = 20;
 
 /** The home shelves: `new` is newest releases first; `popular` is most saved (real play counts come later). */
 async function browseTracks(sort: 'new' | 'popular', limit: number): Promise<Track[]> {
   const data = await apiRequest<{ tracks: WireTrack[] }>('/v1/browse/tracks', { query: { sort, limit } });
   return data.tracks.map(toTrack);
+}
+
+/** The server has no "new from artists you follow" list, so it is put together from each followed artist's newest. */
+async function followedReleases(perArtist: number): Promise<Album[]> {
+  const { artists } = await apiRequest<{ artists: { id: string; name: string; verified?: boolean }[] }>('/v1/me/library/artists', {
+    query: { limit: FOLLOWED_LOOKED_AT },
+  });
+  const lists = await Promise.allSettled(
+    artists.map(async (artist) => {
+      const data = await apiRequest<{ releases: WireRelease[] }>(`/v1/artists/${encodeURIComponent(artist.id)}/releases`, {
+        query: { limit: perArtist },
+      });
+      return data.releases.map((r) => ({ ...toAlbum(r, artist), artistVerified: r.artist?.verified ?? artist.verified }));
+    }),
+  );
+  // One artist that cannot be read does not hide the others; if none can, say so.
+  if (artists.length > 0 && lists.every((l) => l.status === 'rejected')) throw (lists[0] as PromiseRejectedResult).reason;
+  const releasedAt = (a: Album) => Date.parse(a.releaseDate ?? '') || 0;
+  return lists.flatMap((l) => (l.status === 'fulfilled' ? l.value : [])).sort((a, b) => releasedAt(b) - releasedAt(a));
 }
 
 export const httpApi: BlacApi = {
@@ -323,11 +344,11 @@ export const httpApi: BlacApi = {
   getFeaturedArtists: async () => {
     try {
       const data = await apiRequest<{ artists: WireArtist[] }>('/v1/browse/artists', { query: { sort: 'featured', limit: PAGE } });
-      return data.artists.map(toArtist);
+      return data.artists.map(toArtist).filter((x) => x.verification === 'verified');
     } catch (error) {
       if (!isNotFound(error)) throw error;
       // The backend has no artist list yet: use the artists behind the popular songs.
-      return artistsFromTracks(await browseTracks('popular', 50));
+      return artistsFromTracks(await browseTracks('popular', 50)).filter((x) => x.verification === 'verified');
     }
   },
 
@@ -592,24 +613,56 @@ export const httpApi: BlacApi = {
     return out.length > 0 ? out : (await browseTracks('popular', 40)).filter((t) => t.id !== track.id);
   },
 
-  // The server has no "new from artists you follow" list, so it is put together from each followed artist's newest.
-  getFollowedReleases: async () => {
-    const { artists } = await apiRequest<{ artists: { id: string; name: string; verified?: boolean }[] }>('/v1/me/library/artists', {
-      query: { limit: FOLLOWED_LOOKED_AT },
-    });
-    const lists = await Promise.allSettled(
-      artists.map(async (artist) => {
-        const data = await apiRequest<{ releases: WireRelease[] }>(`/v1/artists/${encodeURIComponent(artist.id)}/releases`, {
-          query: { limit: NEW_PER_ARTIST },
-        });
-        return data.releases.map((r) => ({ ...toAlbum(r, artist), artistVerified: r.artist?.verified ?? artist.verified }));
-      }),
-    );
-    // One artist that cannot be read does not hide the others; if none can, say so.
-    const found = lists.flatMap((l) => (l.status === 'fulfilled' ? l.value : []));
-    if (artists.length > 0 && lists.every((l) => l.status === 'rejected')) throw (lists[0] as PromiseRejectedResult).reason;
-    const releasedAt = (a: Album) => Date.parse(a.releaseDate ?? '') || 0;
-    return found.sort((a, b) => releasedAt(b) - releasedAt(a)).slice(0, PAGE);
+  getFollowedReleases: async () => (await followedReleases(NEW_PER_ARTIST)).slice(0, PAGE),
+
+  getMorePage: async (list, ref, offset) => {
+    const id = encodeURIComponent(ref ?? '');
+    const page = { limit: PAGE, offset };
+    /** A full page means there may be another. */
+    const paged = <T>(rows: T[], toItem: (row: T) => MoreItem): MorePage => ({ items: rows.map(toItem), next: rows.length >= PAGE ? offset + rows.length : null });
+    const albums = async (path: string, query: Record<string, string | number>) =>
+      paged((await apiRequest<{ releases: WireRelease[] }>(path, { query })).releases, (r) => ({ kind: 'album', album: toAlbum(r) }));
+    const playlists = async (path: string, query: Record<string, string | number> = page) =>
+      paged((await apiRequest<{ playlists: WirePlaylist[] }>(path, { query })).playlists, (p) => ({ kind: 'playlist', playlist: toPlaylist(p) }));
+
+    switch (list) {
+      case 'featured-albums':
+        return albums('/v1/browse/albums', { sort: 'popular', type: 'album', ...page });
+      case 'latest-releases':
+        return albums('/v1/browse/albums', { sort: 'new', type: 'all', ...page });
+      case 'artist-releases':
+        return albums(`/v1/artists/${id}/releases`, { sort: 'popular', ...page });
+      case 'playlists':
+        return playlists('/v1/browse/playlists', { sort: 'featured', ...page });
+      case 'your-playlists':
+        return playlists('/v1/me/playlists');
+      case 'group':
+        return playlists(`/v1/browse/playlist-groups/${id}`);
+      case 'podcasts': {
+        const data = await apiRequest<{ shows: WireShow[] }>('/v1/me/shows', { query: page });
+        return paged(data.shows, (show) => ({ kind: 'podcast', podcast: toPodcast(show) }));
+      }
+      case 'featured-artists': {
+        const data = await apiRequest<{ artists: WireArtist[] }>('/v1/browse/artists', { query: { sort: 'featured', ...page } });
+        const verified = data.artists.map(toArtist).filter((a) => a.verification === 'verified');
+        // Verified artists are listed first, so the first page with anyone else on it is the last one needed.
+        return {
+          items: verified.map((artist) => ({ kind: 'artist', artist })),
+          next: verified.length === data.artists.length && data.artists.length >= PAGE ? offset + data.artists.length : null,
+        };
+      }
+      // The rest come all at once from the server.
+      case 'new-releases':
+        return { items: (await followedReleases(MORE_PER_ARTIST)).map((album) => ({ kind: 'album', album })), next: null };
+      case 'related-artists': {
+        const data = await apiRequest<{ artists: WireArtist[] }>(`/v1/artists/${id}/related`, { query: { limit: 50 } });
+        return { items: data.artists.map((a) => ({ kind: 'artist', artist: toArtist(a) })), next: null };
+      }
+      case 'related-albums': {
+        const data = await apiRequest<{ releases: WireRelease[] }>(`/v1/releases/${id}/related`, { query: { limit: 50 } });
+        return { items: data.releases.map((r) => ({ kind: 'album', album: toAlbum(r) })), next: null };
+      }
+    }
   },
 
   setFollowing: async (artistId, follow) => {

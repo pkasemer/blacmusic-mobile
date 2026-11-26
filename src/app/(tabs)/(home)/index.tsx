@@ -214,7 +214,7 @@ export default function HomeScreen() {
         ) : (
           <>
             {/* Yours first (likes and recently played are in the Library) */}
-            <PlaylistShelf title="Your playlists" playlists={yourPlaylists} />
+            <PlaylistShelf title="Your playlists" playlists={yourPlaylists} more={{ list: 'your-playlists' }} />
 
             {/* Then what we recommend */}
             {hasYours ? (
@@ -225,9 +225,9 @@ export default function HomeScreen() {
                 <View style={{ height: 1, backgroundColor: colors.border }} />
               </View>
             ) : null}
-            <AlbumShelf title="New releases" albums={newReleases.data} />
-            <ArtistShelf title="Featured artists" artists={artists.data} />
-            <AlbumShelf title="Featured" albums={albums.data} />
+            <AlbumShelf title="New releases" albums={newReleases.data} more={{ list: 'new-releases' }} />
+            <ArtistShelf title="Featured artists" artists={artists.data} more={{ list: 'featured-artists' }} />
+            <AlbumShelf title="Featured" albums={albums.data} more={{ list: 'featured-albums' }} />
             {/* Then the themed playlists: one shelf per editorial group ("Workout", "Throwback"…), named and ordered by the backend. */}
             {groupShelves.length > 0 ? (
               groupShelves.map((g) => (
@@ -235,13 +235,13 @@ export default function HomeScreen() {
                   key={g.id}
                   title={g.title}
                   playlists={g.playlists}
-                  onSeeAll={g.playlistCount > g.playlists.length ? () => router.push({ pathname: '/group/[id]', params: { id: g.id } }) : undefined}
+                  more={{ list: 'group', ref: g.id }}
                 />
               ))
             ) : (
-              <PlaylistShelf title="Playlists" playlists={recommendedPlaylists} />
+              <PlaylistShelf title="Playlists" playlists={recommendedPlaylists} more={{ list: 'playlists' }} />
             )}
-            <PodcastShelf podcasts={podcasts.data} />
+            <PodcastShelf podcasts={podcasts.data} more={{ list: 'podcasts' }} />
           </>
         )}
 

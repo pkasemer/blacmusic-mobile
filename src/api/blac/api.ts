@@ -1,3 +1,4 @@
+import type { MoreList, MorePage } from '@/domain/more';
 import type {
   Album,
   Playlist,
@@ -92,6 +93,8 @@ export interface BlacApi {
   searchAlbums(query: string): Promise<Album[]>;
   /** Songs that sound like `track` (same genre or same artist), for "Start radio". The song itself is not included. */
   getSimilarTracks(track: Track): Promise<Track[]>;
+  /** One page of a section's whole list, starting at `offset`. `ref` is the artist, album or group it belongs to. */
+  getMorePage(list: MoreList, ref: string | undefined, offset: number): Promise<MorePage>;
   /** The newest releases of the artists the listener follows. Empty when they follow nobody. */
   getFollowedReleases(): Promise<Album[]>;
   /** Follows or unfollows an artist. */

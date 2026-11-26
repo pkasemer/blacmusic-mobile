@@ -1,5 +1,6 @@
 import { FlatList, Pressable, View } from 'react-native';
 import { useRouter } from 'expo-router';
+import type { MoreList } from '@/domain/more';
 import type { Album, Artist, Playlist, Podcast } from '@/domain/types';
 import { VerifiedBadge } from './VerifiedBadge';
 import { ArtistName } from './ArtistName';
@@ -11,15 +12,44 @@ import { Text } from './Text';
 const CARD = 140;
 const STRIDE = CARD + 14;
 
+/** Where a section's "More" link goes. */
+export interface ShelfMore {
+  list: MoreList;
+  /** The artist, album or playlist group the list belongs to. */
+  ref?: string;
+}
+
+/** A section's title with "More" on the right, which opens the whole list. */
+function ShelfHeader({ title, more }: { title: string; more?: ShelfMore }) {
+  const router = useRouter();
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, paddingHorizontal: 20 }}>
+      <Text variant="title" accessibilityRole="header" style={{ flexShrink: 1 }}>
+        {title}
+      </Text>
+      {more ? (
+        <Pressable
+          onPress={() => router.push({ pathname: '/more/[list]', params: { list: more.list, title, ...(more.ref ? { ref: more.ref } : null) } })}
+          hitSlop={10}
+          accessibilityRole="button"
+          accessibilityLabel={`More ${title}`}
+        >
+          <Text variant="bodyStrong" color="accent">
+            More
+          </Text>
+        </Pressable>
+      ) : null}
+    </View>
+  );
+}
+
 /** Horizontal row of podcast covers; tapping one opens its episode list. */
-export function PodcastShelf({ podcasts }: { podcasts: Podcast[] | undefined }) {
+export function PodcastShelf({ podcasts, more }: { podcasts: Podcast[] | undefined; more?: ShelfMore }) {
   const router = useRouter();
   if (!podcasts || podcasts.length === 0) return null;
   return (
     <View style={{ gap: 14 }}>
-      <Text variant="title" accessibilityRole="header" style={{ paddingHorizontal: 20 }}>
-        Podcasts
-      </Text>
+      <ShelfHeader title="Podcasts" more={more} />
       <FlatList
         horizontal
         data={podcasts}
@@ -53,14 +83,12 @@ const ARTIST = 124;
 const ARTIST_STRIDE = ARTIST + 14;
 
 /** Round pictures of featured artists. Tapping one opens the artist's page. */
-export function ArtistShelf({ title, artists }: { title: string; artists: Artist[] | undefined }) {
+export function ArtistShelf({ title, artists, more }: { title: string; artists: Artist[] | undefined; more?: ShelfMore }) {
   const router = useRouter();
   if (!artists || artists.length === 0) return null;
   return (
     <View style={{ gap: 14 }}>
-      <Text variant="title" accessibilityRole="header" style={{ paddingHorizontal: 20 }}>
-        {title}
-      </Text>
+      <ShelfHeader title={title} more={more} />
       <FlatList
         horizontal
         data={artists}
@@ -95,14 +123,12 @@ export function ArtistShelf({ title, artists }: { title: string; artists: Artist
 }
 
 /** Covers of albums, EPs and singles. Tapping one opens the album's page. */
-export function AlbumShelf({ title, albums }: { title: string; albums: Album[] | undefined }) {
+export function AlbumShelf({ title, albums, more }: { title: string; albums: Album[] | undefined; more?: ShelfMore }) {
   const router = useRouter();
   if (!albums || albums.length === 0) return null;
   return (
     <View style={{ gap: 14 }}>
-      <Text variant="title" accessibilityRole="header" style={{ paddingHorizontal: 20 }}>
-        {title}
-      </Text>
+      <ShelfHeader title={title} more={more} />
       <FlatList
         horizontal
         data={albums}
@@ -141,29 +167,17 @@ export function AlbumShelf({ title, albums }: { title: string; albums: Album[] |
 export function PlaylistShelf({
   title,
   playlists,
-  onSeeAll,
+  more,
 }: {
   title: string;
   playlists: Playlist[] | undefined;
-  /** When set, a "See all" link shows next to the title. */
-  onSeeAll?: () => void;
+  more?: ShelfMore;
 }) {
   const router = useRouter();
   if (!playlists || playlists.length === 0) return null;
   return (
     <View style={{ gap: 14 }}>
-      <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', paddingHorizontal: 20 }}>
-        <Text variant="title" accessibilityRole="header" style={{ flexShrink: 1 }}>
-          {title}
-        </Text>
-        {onSeeAll ? (
-          <Pressable onPress={onSeeAll} hitSlop={10} accessibilityRole="button" accessibilityLabel={`See all in ${title}`}>
-            <Text variant="bodyStrong" color="accent">
-              See all
-            </Text>
-          </Pressable>
-        ) : null}
-      </View>
+      <ShelfHeader title={title} more={more} />
       <FlatList
         horizontal
         data={playlists}

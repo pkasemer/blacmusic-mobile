@@ -1,4 +1,5 @@
-import { keepPreviousData, useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useInfiniteQuery, useQuery } from '@tanstack/react-query';
+import { moreItemId, type MoreList } from '@/domain/more';
 import { blacApi } from './index';
 import type { Album } from '@/domain/types';
 import { FALLBACK_GENRES } from '@/domain/genres';
@@ -33,6 +34,20 @@ export const musicKeys = {
 
 export const useFollowedReleases = () =>
   useQuery({ queryKey: musicKeys.followedReleases, queryFn: () => blacApi.getFollowedReleases(), staleTime: FIVE_MINUTES });
+
+/** A section's whole list, a page at a time. */
+export const useMoreList = (list: MoreList, ref: string | undefined) =>
+  useInfiniteQuery({
+    queryKey: ['music', 'more', list, ref ?? ''] as const,
+    queryFn: ({ pageParam }) => blacApi.getMorePage(list, ref, pageParam),
+    initialPageParam: 0,
+    getNextPageParam: (last, pages) => {
+      // A server that ignores "start at" would send the same page for ever: stop once a page brings nothing new.
+      const before = new Set(pages.slice(0, -1).flatMap((p) => p.items.map(moreItemId)));
+      return last.next !== null && (pages.length === 1 || last.items.some((item) => !before.has(moreItemId(item)))) ? last.next : undefined;
+    },
+    staleTime: FIVE_MINUTES,
+  });
 
 export const useTrending = () =>
   useQuery({ queryKey: musicKeys.trending, queryFn: () => blacApi.getTrending(), staleTime: FIVE_MINUTES });
@@ -208,9 +223,6 @@ export const useMyPlaylistsFor = (trackId: string | null) =>
 /** The named editorial groups of playlists for Home. */
 export const usePlaylistGroups = () =>
   useQuery({ queryKey: musicKeys.playlistGroups, queryFn: () => blacApi.getPlaylistGroups(), staleTime: FIVE_MINUTES });
-
-export const usePlaylistGroup = (id: string) =>
-  useQuery({ queryKey: musicKeys.playlistGroup(id), queryFn: () => blacApi.getPlaylistGroup(id), enabled: !!id, staleTime: FIVE_MINUTES });
 
 /** Popular songs of one genre, for tapping a genre tile on Search. `null` means no genre is chosen. */
 export const useGenreTracks = (genre: string | null) =>

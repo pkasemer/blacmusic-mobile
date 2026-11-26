@@ -2,7 +2,7 @@ import { Stack } from 'expo-router';
 import { useTheme } from '@/theme';
 
 /** Pages that open on top of a tab's own screen. They live inside the tab, so the tab bar and mini player stay. */
-const DETAIL_PAGES = ['artist/[id]', 'album/[id]', 'track/[id]', 'podcast/[id]', 'playlist/[id]', 'group/[id]'];
+const DETAIL_PAGES = ['artist/[id]', 'album/[id]', 'track/[id]', 'podcast/[id]', 'playlist/[id]', 'more/[list]'];
 
 /**
  * One navigation stack per tab (Home, Search, Library). The artist, album, track and podcast pages are shared:

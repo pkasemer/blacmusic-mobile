@@ -197,7 +197,7 @@ export default function SearchScreen() {
       {!searching ? (
         <>
           <RecentSection onOpen={(kind, id) => open(kind, id)} />
-          <AlbumShelf title="Latest releases" albums={latest.data} />
+          <AlbumShelf title="Latest releases" albums={latest.data} more={{ list: 'latest-releases' }} />
           <View style={{ paddingHorizontal: 20, paddingTop: 4 }}>
             <Text variant="title" accessibilityRole="header">
               Trending now
