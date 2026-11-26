@@ -30,7 +30,6 @@ const POPULAR_SHOWN = 5;
 
 /** Follow / Following. The change shows at once; if the server refuses, it goes back and says so. */
 function FollowButton({ artist }: { artist: Artist }) {
-  const { colors } = useTheme();
   const button = useSecondaryButton();
   const key = musicKeys.artist(artist.id);
   const following = artist.following === true;
@@ -56,9 +55,8 @@ function FollowButton({ artist }: { artist: Artist }) {
       label={following ? 'Following' : 'Follow'}
       hint={following ? `Following ${artist.name}. Tap to unfollow` : `Follow ${artist.name}`}
       active={following}
-      strong={!following}
       onPress={() => void toggle()}
-      icon={<Icon size={18} color={following ? button.ink : colors.bg} />}
+      icon={<Icon size={18} color={following ? button.accent : button.ink} />}
     />
   );
 }
