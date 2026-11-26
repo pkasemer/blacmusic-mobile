@@ -4,7 +4,7 @@ import { queryClient } from '@/api/queryClient';
 import { stopMusic } from '@/audio/music/musicEngine';
 import { removeAllDownloads } from '@/offline/downloads';
 import { useArtistStore } from '@/store/artistStore';
-import { unregisterPushToken } from '@/notifications/push';
+import { tokenToRemove } from '@/notifications/push';
 import { useAuthStore } from '@/store/authStore';
 
 /** Reads the account and artist profile from the server into the app. Safe to call any time while signed in. */
@@ -28,11 +28,15 @@ function forgetAccount() {
   queryClient.clear();
 }
 
-/** Signs out: clears the tokens and tells the server. `useSessionSync` then clears the rest from this device. */
-export async function signOut() {
-  // Stop notifications to this phone while the token still works (best effort).
-  await unregisterPushToken().catch(() => {});
-  await authApi.logout();
+/**
+ * Signs out at once: the app forgets the tokens first (so the Get started screen appears immediately, even with no
+ * network), then tells the server in the background to stop notifications to this phone and end the session.
+ * `useSessionSync` clears the rest from this device.
+ */
+export function signOut() {
+  const { accessToken, accessExpiresAt, refreshToken, clear } = useAuthStore.getState();
+  clear();
+  if (refreshToken) void authApi.endSession({ accessToken, accessExpiresAt, refreshToken }, tokenToRemove);
 }
 
 /**

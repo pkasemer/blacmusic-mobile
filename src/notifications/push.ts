@@ -1,5 +1,6 @@
 import { Alert, Linking, Platform } from 'react-native';
 import Constants from 'expo-constants';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import { apiRequest } from '@/api/blac/http';
 
@@ -64,6 +65,19 @@ async function getToken(): Promise<string | null> {
   }
 }
 
+/** Where the token the backend was told about is kept. */
+const TOKEN_KEY = 'blac-push-token';
+
+/**
+ * The token to remove from the backend: the one saved when it was registered (instant), else asked from Expo, which
+ * needs the network.
+ */
+export async function tokenToRemove(): Promise<string | null> {
+  const saved = await AsyncStorage.getItem(TOKEN_KEY).catch(() => null);
+  if (saved) return saved;
+  return (await getPushStatus()) === 'granted' ? getToken() : null;
+}
+
 /**
  * Tells the backend about this phone, if notifications are allowed. Safe to call on every launch: the backend
  * keeps one entry per token. Returns whether a token was registered.
@@ -77,6 +91,7 @@ export async function registerPushToken(): Promise<boolean> {
       method: 'POST',
       body: { token, platform: Platform.OS === 'ios' ? 'ios' : 'android' },
     });
+    AsyncStorage.setItem(TOKEN_KEY, token).catch(() => {});
     return true;
   } catch {
     return false; // the backend may not have this yet, or we are offline: try again next launch
@@ -85,7 +100,7 @@ export async function registerPushToken(): Promise<boolean> {
 
 /** Stops the backend sending to this phone. Call it while still signed in. */
 export async function unregisterPushToken(): Promise<void> {
-  const token = await getToken();
+  const token = await tokenToRemove();
   if (!token) return;
   try {
     await apiRequest<void>('/v1/me/push-tokens', { method: 'DELETE', body: { token } });

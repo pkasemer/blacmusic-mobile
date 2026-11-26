@@ -84,11 +84,27 @@ export const authApi = {
     useAuthStore.getState().clear();
   },
 
-  /** Ends the session on the server (best effort) and forgets the tokens on this device. */
-  async logout(): Promise<void> {
-    const { refreshToken, clear } = useAuthStore.getState();
-    clear();
-    if (!refreshToken) return;
+  /**
+   * Ends a session on the server after the app has already forgotten it (best effort, in the background). With
+   * `pushToken` the backend also stops sending notifications to this phone; that call needs a working access token,
+   * so an expired one is renewed first. Nothing here touches the sign-in state on this device.
+   */
+  async endSession(session: { accessToken: string | null; accessExpiresAt: number | null; refreshToken: string }, pushToken: () => Promise<string | null>): Promise<void> {
+    let { accessToken, refreshToken } = session;
+    const token = await pushToken().catch(() => null);
+    if (token) {
+      try {
+        if (!accessToken || !session.accessExpiresAt || session.accessExpiresAt - Date.now() < 30_000) {
+          const renewed = await apiRequest<AuthResponse>('/v1/auth/refresh', { method: 'POST', auth: false, body: { refreshToken } });
+          accessToken = renewed.accessToken;
+          // Refresh tokens work once: the new one is the one to end below.
+          refreshToken = renewed.refreshToken;
+        }
+        await apiRequest<void>('/v1/me/push-tokens', { method: 'DELETE', auth: false, headers: { Authorization: `Bearer ${accessToken}` }, body: { token } });
+      } catch {
+        // Offline or already gone: still try to end the session.
+      }
+    }
     try {
       await apiRequest<void>('/v1/auth/logout', { method: 'POST', auth: false, body: { refreshToken } });
     } catch {
