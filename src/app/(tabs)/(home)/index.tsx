@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Heart, History } from 'lucide-react-native';
 import { playQueue } from '@/audio/music/musicEngine';
-import { useAlbums, useFeaturedArtists, useMyPlaylists, useNewReleaseAlbums, usePlayables, usePlaylistGroups, usePlaylists, usePodcasts } from '@/api/blac/queries';
+import { useAlbums, useFeaturedArtists, useFollowedReleases, useMyPlaylists, usePlayables, usePlaylistGroups, usePlaylists, usePodcasts } from '@/api/blac/queries';
 import { Artwork } from '@/components/Artwork';
 import { HomeHero, TILE_SIZE, type HomeFeatured, type HomeTile } from '@/components/HomeHero';
 import { AlbumShelf, ArtistShelf, PlaylistShelf, PodcastShelf } from '@/components/MusicShelf';
@@ -38,7 +38,8 @@ export default function HomeScreen() {
   const playlists = usePlaylists();
   const groups = usePlaylistGroups();
   const myPlaylists = useMyPlaylists();
-  const newReleases = useNewReleaseAlbums();
+  // New releases come only from artists the listener follows.
+  const newReleases = useFollowedReleases();
   const podcasts = usePodcasts();
   const artists = useFeaturedArtists();
   const albums = useAlbums();
@@ -166,13 +167,12 @@ export default function HomeScreen() {
 
   const hasYours = yourPlaylists.length > 0;
 
-  const loading = playlists.isPending && newReleases.isPending && podcasts.isPending && artists.isPending && albums.isPending;
-  const failed = playlists.isError && newReleases.isError && podcasts.isError && artists.isError && albums.isError;
+  const loading = playlists.isPending && podcasts.isPending && artists.isPending && albums.isPending;
+  const failed = playlists.isError && podcasts.isError && artists.isError && albums.isError;
   const empty =
     !loading &&
     !failed &&
     !playlists.data?.length &&
-    !newReleases.data?.length &&
     !podcasts.data?.length &&
     !artists.data?.length &&
     !albums.data?.length &&

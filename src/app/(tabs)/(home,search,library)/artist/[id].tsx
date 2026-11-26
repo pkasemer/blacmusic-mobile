@@ -55,6 +55,8 @@ function FollowButton({ artist }: { artist: Artist }) {
     queryClient.setQueryData<Artist | null>(key, (a) => change(a, next));
     try {
       await blacApi.setFollowing(artist.id, next);
+      // Home's New releases shows only followed artists.
+      void queryClient.invalidateQueries({ queryKey: musicKeys.followedReleases });
     } catch (e) {
       queryClient.setQueryData<Artist | null>(key, (a) => change(a, !next));
       haptics.error();

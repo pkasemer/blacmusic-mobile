@@ -92,6 +92,8 @@ export interface BlacApi {
   searchAlbums(query: string): Promise<Album[]>;
   /** Songs that sound like `track` (same genre or same artist), for "Start radio". The song itself is not included. */
   getSimilarTracks(track: Track): Promise<Track[]>;
+  /** The newest releases of the artists the listener follows. Empty when they follow nobody. */
+  getFollowedReleases(): Promise<Album[]>;
   /** Follows or unfollows an artist. */
   setFollowing(artistId: string, follow: boolean): Promise<void>;
   getPodcasts(): Promise<Podcast[]>;

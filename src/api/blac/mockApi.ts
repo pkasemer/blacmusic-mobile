@@ -179,6 +179,7 @@ export const mockApi: BlacApi = {
     return delay<PlaylistDetail | null>(playlist ? { playlist, tracks, itemIds: tracks.map((t) => `${id}-${t.id}`) } : null);
   },
   getSimilarTracks: (track) => delay(TRACKS.filter((t) => t.id !== track.id && (t.genre === track.genre || t.artistId === track.artistId))),
+  getFollowedReleases: () => delay<Album[]>([]),
   setFollowing: () => delay(undefined, 150),
   getRelatedArtists: (artistId) => delay(artistsFromTracks(TRACKS).filter((a) => a.id !== artistId)),
   getRelatedAlbums: (album) => delay(albumsFromTracks(TRACKS).filter((a) => a.id !== album.id)),

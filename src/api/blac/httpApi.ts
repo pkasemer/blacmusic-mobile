@@ -270,6 +270,9 @@ const isNotFound = (e: unknown) => e instanceof ApiError && e.status === 404;
 const isMissing = (e: unknown) => e instanceof ApiError && (e.status === 404 || e.status === 405);
 
 const PAGE = 24;
+/** For new releases from followed artists: how many of the most recently followed are read, and how many each. */
+const FOLLOWED_LOOKED_AT = 30;
+const NEW_PER_ARTIST = 3;
 
 /** The home shelves: `new` is newest releases first; `popular` is most saved (real play counts come later). */
 async function browseTracks(sort: 'new' | 'popular', limit: number): Promise<Track[]> {
@@ -586,6 +589,26 @@ export const httpApi: BlacApi = {
     }
     // A small catalogue may have nothing similar: fall back to what is popular.
     return out.length > 0 ? out : (await browseTracks('popular', 40)).filter((t) => t.id !== track.id);
+  },
+
+  // The server has no "new from artists you follow" list, so it is put together from each followed artist's newest.
+  getFollowedReleases: async () => {
+    const { artists } = await apiRequest<{ artists: { id: string; name: string; verified?: boolean }[] }>('/v1/me/library/artists', {
+      query: { limit: FOLLOWED_LOOKED_AT },
+    });
+    const lists = await Promise.allSettled(
+      artists.map(async (artist) => {
+        const data = await apiRequest<{ releases: WireRelease[] }>(`/v1/artists/${encodeURIComponent(artist.id)}/releases`, {
+          query: { limit: NEW_PER_ARTIST },
+        });
+        return data.releases.map((r) => ({ ...toAlbum(r, artist), artistVerified: r.artist?.verified ?? artist.verified }));
+      }),
+    );
+    // One artist that cannot be read does not hide the others; if none can, say so.
+    const found = lists.flatMap((l) => (l.status === 'fulfilled' ? l.value : []));
+    if (artists.length > 0 && lists.every((l) => l.status === 'rejected')) throw (lists[0] as PromiseRejectedResult).reason;
+    const releasedAt = (a: Album) => Date.parse(a.releaseDate ?? '') || 0;
+    return found.sort((a, b) => releasedAt(b) - releasedAt(a)).slice(0, PAGE);
   },
 
   setFollowing: async (artistId, follow) => {

@@ -20,6 +20,7 @@ export const musicKeys = {
   artistTracks: (id: string) => ['music', 'artist', id, 'tracks'] as const,
   album: (id: string) => ['music', 'album', id] as const,
   track: (id: string) => ['music', 'track', id] as const,
+  followedReleases: ['music', 'followed-releases'] as const,
   playlists: ['music', 'playlists'] as const,
   playlistGroups: ['music', 'playlist-groups'] as const,
   playlistGroup: (id: string) => ['music', 'playlist-group', id] as const,
@@ -29,6 +30,9 @@ export const musicKeys = {
   studio: (artistId: string) => ['studio', artistId] as const,
   quota: (artistId: string) => ['studio', artistId, 'quota'] as const,
 };
+
+export const useFollowedReleases = () =>
+  useQuery({ queryKey: musicKeys.followedReleases, queryFn: () => blacApi.getFollowedReleases(), staleTime: FIVE_MINUTES });
 
 export const useTrending = () =>
   useQuery({ queryKey: musicKeys.trending, queryFn: () => blacApi.getTrending(), staleTime: FIVE_MINUTES });
