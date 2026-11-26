@@ -5,7 +5,7 @@ import { playQueue, toggleMusicPlayback } from '@/audio/music/musicEngine';
 import { sameSource, type PlaybackSource } from '@/audio/music/source';
 import type { Playable } from '@/domain/types';
 import { useMusicStore } from '@/store/musicStore';
-import { lightColors, radius, useTheme } from '@/theme';
+import { lightColors, useTheme } from '@/theme';
 import { haptics } from '@/utils/haptics';
 import { Text } from './Text';
 
@@ -17,13 +17,13 @@ export function useSecondaryButton() {
     : { fill: colors.surfaceAlt, activeFill: colors.primarySoft, ink: colors.text, accent: colors.accent, muted: colors.textTertiary };
 }
 
-/** Wide enough for the longest label ("Downloaded"); five of these still fit across a small phone. */
-const ACTION_WIDTH = 66;
-const CIRCLE = 46;
+/** The one shape of every button on these pages: same height, same corners, same gap between them. */
+const SHAPE = { height: 54, borderRadius: 12, borderCurve: 'continuous' } as const;
+const GAP = 8;
 
 /**
- * A page's own action (download, share, like and so on): a small circle with its name underneath. Each is only as big
- * as it needs to be, so the row stays quiet and leaves the space around it empty.
+ * A page's own action (download, share, like and so on): a tile with the icon above its name. The tiles in the row
+ * are all the same width.
  */
 export function ActionButton({
   label,
@@ -31,6 +31,7 @@ export function ActionButton({
   onPress,
   hint,
   active,
+  strong,
 }: {
   label: string;
   icon: ReactNode;
@@ -38,7 +39,10 @@ export function ActionButton({
   /** Said by VoiceOver instead of the label, when more words help. */
   hint?: string;
   active?: boolean;
+  /** Filled with the text colour, to stand out (Follow). Give the icon the page colour. */
+  strong?: boolean;
 }) {
+  const { colors } = useTheme();
   const button = useSecondaryButton();
   return (
     <Pressable
@@ -46,19 +50,26 @@ export function ActionButton({
       accessibilityRole="button"
       accessibilityLabel={hint ?? label}
       accessibilityState={{ selected: !!active }}
-      style={({ pressed }) => ({ width: ACTION_WIDTH, alignItems: 'center', gap: 6, opacity: pressed ? 0.6 : 1 })}
+      style={({ pressed }) => ({
+        ...SHAPE,
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 3,
+        paddingHorizontal: 2,
+        backgroundColor: strong ? colors.text : active ? button.activeFill : button.fill,
+        opacity: pressed ? 0.7 : 1,
+      })}
     >
-      <View style={{ width: CIRCLE, height: CIRCLE, borderRadius: CIRCLE / 2, alignItems: 'center', justifyContent: 'center', backgroundColor: active ? button.activeFill : button.fill }}>
-        {icon}
-      </View>
-      <Text variant="caption" color="textSecondary" numberOfLines={1} style={{ fontSize: 11.5, lineHeight: 15 }}>
+      <View style={{ height: 20, justifyContent: 'center' }}>{icon}</View>
+      <Text variant="caption" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} style={{ fontSize: 11.5, lineHeight: 15, color: strong ? colors.bg : button.ink }}>
         {label}
       </Text>
     </Pressable>
   );
 }
 
-/** Play (purple) or Shuffle: two equal pills of a modest, fixed width. */
+/** Play (purple) or Shuffle: the same shape as the tiles, in equal columns. */
 function MainButton({ label, icon, onPress, main }: { label: string; icon: ReactNode; onPress: () => void; main?: boolean }) {
   const { colors } = useTheme();
   const button = useSecondaryButton();
@@ -68,13 +79,12 @@ function MainButton({ label, icon, onPress, main }: { label: string; icon: React
       accessibilityRole="button"
       accessibilityLabel={label}
       style={({ pressed }) => ({
-        width: 132,
-        height: 44,
+        ...SHAPE,
+        flex: 1,
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
         gap: 8,
-        borderRadius: radius.pill,
         backgroundColor: main ? colors.primary : button.fill,
         opacity: pressed ? 0.8 : 1,
       })}
@@ -89,7 +99,7 @@ function MainButton({ label, icon, onPress, main }: { label: string; icon: React
 
 /**
  * The buttons under the top of every details page (artist, album, playlist, song, podcast), all with their names.
- * First Play and Shuffle, centred; under them the page's own actions (`tools`), centred too. While this page's music is the
+ * First Play and Shuffle; under them the page's own actions (`tools`). Both rows share the same edges and gaps. While this page's music is the
  * one loaded in the player, Play reads Pause and pauses or resumes it instead of starting over.
  */
 export function DetailActions({
@@ -119,9 +129,9 @@ export function DetailActions({
 
   return (
     // The top of the page already leaves room below its text, so the buttons sit close under it.
-    <View style={{ gap: 20, paddingHorizontal: 20, marginTop: -12 }}>
+    <View style={{ gap: GAP, paddingHorizontal: 20, marginTop: -16 }}>
       {items.length > 0 ? (
-        <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 12 }}>
+        <View style={{ flexDirection: 'row', gap: GAP }}>
           <MainButton
             main
             label={loading ? 'Loading…' : pausable ? 'Pause' : 'Play'}
@@ -148,7 +158,7 @@ export function DetailActions({
           ) : null}
         </View>
       ) : null}
-      {tools ? <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', columnGap: 2, rowGap: 14 }}>{tools}</View> : null}
+      {tools ? <View style={{ flexDirection: 'row', gap: GAP }}>{tools}</View> : null}
     </View>
   );
 }

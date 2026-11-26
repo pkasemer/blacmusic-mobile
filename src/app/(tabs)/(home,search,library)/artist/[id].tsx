@@ -16,13 +16,14 @@ import { Card } from '@/components/Card';
 import { DetailHero, HeroCover, HeroMeta, useHeroCoverSize, useHeroScroll } from '@/components/DetailHero';
 import { AlbumShelf, ArtistShelf } from '@/components/MusicShelf';
 import { ShareLinkButton } from '@/components/CollectionActions';
-import { DetailActions, useSecondaryButton } from '@/components/DetailActions';
+import { UserCheck, UserPlus } from 'lucide-react-native';
+import { ActionButton, DetailActions, useSecondaryButton } from '@/components/DetailActions';
 import { ScreenState } from '@/components/ScreenState';
 import { Text } from '@/components/Text';
 import { TrackRow } from '@/components/TrackRow';
 import { useTrackMenu } from '@/components/TrackActionSheet';
 import { TabScreen } from '@/components/TabScreen';
-import { radius, useTheme } from '@/theme';
+import { useTheme } from '@/theme';
 import { formatCount } from '@/utils/format';
 
 const POPULAR_SHOWN = 5;
@@ -49,29 +50,16 @@ function FollowButton({ artist }: { artist: Artist }) {
     }
   };
 
+  const Icon = following ? UserCheck : UserPlus;
   return (
-    <Pressable
-      onPress={toggle}
-      accessibilityRole="button"
-      accessibilityState={{ selected: following }}
-      accessibilityLabel={following ? `Following ${artist.name}. Tap to unfollow` : `Follow ${artist.name}`}
-      style={({ pressed }) => ({
-        height: 46,
-        marginRight: 8,
-        minWidth: 132,
-        alignItems: 'center',
-        justifyContent: 'center',
-        paddingHorizontal: 24,
-        borderRadius: radius.pill,
-        // Solid, so it reads on whatever colour the artist's picture puts behind it.
-        backgroundColor: following ? button.fill : colors.text,
-        opacity: pressed ? 0.7 : 1,
-      })}
-    >
-      <Text variant="bodyStrong" style={{ color: following ? button.ink : colors.bg }}>
-        {following ? 'Following' : 'Follow'}
-      </Text>
-    </Pressable>
+    <ActionButton
+      label={following ? 'Following' : 'Follow'}
+      hint={following ? `Following ${artist.name}. Tap to unfollow` : `Follow ${artist.name}`}
+      active={following}
+      strong={!following}
+      onPress={() => void toggle()}
+      icon={<Icon size={18} color={following ? button.ink : colors.bg} />}
+    />
   );
 }
 
