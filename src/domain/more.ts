@@ -2,7 +2,6 @@ import type { Album, Artist, Playlist, Podcast } from './types';
 
 /** The lists behind the "More" link of each section. */
 export type MoreList =
-  | 'your-playlists'
   | 'new-releases'
   | 'featured-artists'
   | 'featured-albums'

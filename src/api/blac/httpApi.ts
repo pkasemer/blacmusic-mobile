@@ -512,7 +512,7 @@ export const httpApi: BlacApi = {
   },
 
   getMyPlaylists: async () => {
-    const data = await apiRequest<{ playlists: WirePlaylist[] }>('/v1/me/playlists', { query: { limit: 50 } });
+    const data = await apiRequest<{ playlists: WirePlaylist[] }>('/v1/me/playlists', { query: { limit: 100 } });
     return data.playlists.map(toPlaylist);
   },
 
@@ -654,8 +654,6 @@ export const httpApi: BlacApi = {
         return albums(`/v1/artists/${id}/releases`, { sort: 'popular', ...page });
       case 'playlists':
         return playlists('/v1/browse/playlists', { sort: 'featured', ...page });
-      case 'your-playlists':
-        return playlists('/v1/me/playlists');
       case 'group':
         return playlists(`/v1/browse/playlist-groups/${id}`);
       case 'podcasts': {

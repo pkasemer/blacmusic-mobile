@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { Heart, History } from 'lucide-react-native';
+import { Heart, History, ListMusic } from 'lucide-react-native';
 import { playQueue } from '@/audio/music/musicEngine';
 import { useAlbums, useFeaturedArtists, useFollowedReleases, useMyPlaylists, usePlayables, usePlaylistGroups, usePlaylists, usePodcasts } from '@/api/blac/queries';
 import { Artwork } from '@/components/Artwork';
@@ -65,7 +65,7 @@ export default function HomeScreen() {
   // Something is already loaded in the player (playing or paused): the mini player is the way back to it.
   const playerLoaded = useMusicStore((s) => s.active && s.queue.length > 0);
 
-  // "Your" playlists come first in full; the recommended Playlists row leaves yours out so nothing shows twice.
+  // Yours are listed in the Library; the recommended Playlists row leaves them out.
   const yourPlaylists = useMemo(() => myPlaylists.data ?? [], [myPlaylists.data]);
   const recommendedPlaylists = useMemo(() => {
     const mineIds = new Set(yourPlaylists.map((p) => p.id));
@@ -123,8 +123,8 @@ export default function HomeScreen() {
     return undefined;
   }, [playerLoaded, resumeTrack, resumePosition, resumeDuration, recentTracks, starter, yourSoundId, newReleases.data, router]);
 
-  // Quick-access tiles: likes and recently played (both open in the Library), then your playlists, then what you
-  // played last. A newcomer with none of that gets the featured playlists and albums too, so the top of Home is full.
+  // Quick-access tiles: likes, recently played and your playlists (all three open in the Library), then your first
+  // few playlists and what you played last. A newcomer with none of that gets the featured playlists and albums too, so the top of Home is full.
   const tiles = useMemo<HomeTile[]>(() => {
     const libraryTile = (section: LibrarySection, title: string, icon: React.ReactNode): HomeTile => ({
       key: section,
@@ -138,8 +138,9 @@ export default function HomeScreen() {
     const list: HomeTile[] = [
       libraryTile('favourites', 'Likes', <Heart size={22} color={colors.onPrimary} fill={colors.onPrimary} />),
       libraryTile('recent', 'Recently played', <History size={22} color={colors.onPrimary} strokeWidth={2.4} />),
+      libraryTile('playlists', 'Your playlists', <ListMusic size={22} color={colors.onPrimary} strokeWidth={2.4} />),
     ];
-    for (const p of yourPlaylists.slice(0, 3)) {
+    for (const p of yourPlaylists.slice(0, 2)) {
       list.push({
         key: `pl-${p.id}`,
         title: p.name,
@@ -185,8 +186,6 @@ export default function HomeScreen() {
       .filter((g) => g.playlists.length > 0);
   }, [groups.data, yourPlaylists]);
 
-  const hasYours = yourPlaylists.length > 0;
-
   const loading = playlists.isPending && podcasts.isPending && artists.isPending && albums.isPending;
   const failed = playlists.isError && podcasts.isError && artists.isError && albums.isError;
   const empty =
@@ -195,8 +194,7 @@ export default function HomeScreen() {
     !playlists.data?.length &&
     !podcasts.data?.length &&
     !artists.data?.length &&
-    !albums.data?.length &&
-    yourPlaylists.length === 0;
+    !albums.data?.length;
 
   const retry = () => {
     void playlists.refetch();
@@ -234,18 +232,7 @@ export default function HomeScreen() {
           <ScreenState kind="empty" title="Nothing here yet" message="New songs and podcasts will show up here." />
         ) : (
           <>
-            {/* Yours first (likes and recently played are in the Library) */}
-            <PlaylistShelf title="Your playlists" playlists={yourPlaylists} more={{ list: 'your-playlists' }} />
-
-            {/* Then what we recommend */}
-            {hasYours ? (
-              <View style={{ paddingHorizontal: 20, gap: 10 }}>
-                <Text variant="label" color="textTertiary">
-                  Recommended for you
-                </Text>
-                <View style={{ height: 1, backgroundColor: colors.border }} />
-              </View>
-            ) : null}
+            {/* What we recommend. Likes, recently played and your playlists are in the Library. */}
             <AlbumShelf title="New releases" albums={newReleases.data} more={{ list: 'new-releases' }} />
             <ArtistShelf title="Featured artists" artists={artists.data} more={{ list: 'featured-artists' }} />
             <AlbumShelf title="Featured releases" albums={albums.data} more={{ list: 'featured-albums' }} />
