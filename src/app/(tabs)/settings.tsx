@@ -2,7 +2,7 @@ import { useCallback, useState } from 'react';
 import { ActivityIndicator, Alert, Platform, Pressable, ScrollView, View } from 'react-native';
 import Constants from 'expo-constants';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { Bell, FileText, HardDrive, History, Info, Mail, Mic, Moon, MoonStar, ShieldCheck, Smartphone, Sun, Timer, Volume2, VolumeX, Waves, type LucideIcon, Image as ImageIcon, Music, Upload } from 'lucide-react-native';
+import { Bell, FileText, HardDrive, History, Info, Mail, Mic, Moon, MoonStar, ShieldCheck, SlidersHorizontal, Smartphone, Sun, Timer, Volume2, VolumeX, Waves, type LucideIcon, Image as ImageIcon, Music, Upload } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { clearImageCache, formatBytes, getCacheStats, type CacheStats } from '@/cache/imageCache';
 import { formatCountdown, useSleepRemaining } from '@/audio/sleepTimer';
@@ -185,6 +185,24 @@ function ArtistGroup() {
           haptics.select();
           if (profile) router.navigate('/studio');
           else router.push('/become-artist');
+        }}
+      />
+    </SettingsGroup>
+  );
+}
+
+/** What the listener likes to hear, changeable after onboarding. */
+function TasteGroup() {
+  const router = useRouter();
+  return (
+    <SettingsGroup footer="Languages, regions, genres and favourite artists.">
+      <SettingsRow
+        icon={{ Icon: SlidersHorizontal }}
+        title="Music preferences"
+        chevron
+        onPress={() => {
+          haptics.select();
+          router.push('/music-preferences');
         }}
       />
     </SettingsGroup>
@@ -509,6 +527,7 @@ export default function SettingsScreen() {
           {USES_BACKEND ? <ProfileCard /> : null}
         </View>
         {USES_BACKEND ? <ArtistGroup /> : null}
+        {USES_BACKEND ? <TasteGroup /> : null}
         <PlaybackGroup />
         <DisplayGroup />
         {USES_BACKEND ? <NotificationsGroup /> : null}

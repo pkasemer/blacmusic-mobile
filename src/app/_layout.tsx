@@ -140,6 +140,8 @@ function AppShell() {
           <Stack.Screen name="release/credits" options={{ presentation: 'modal' }} />
           <Stack.Screen name="youtube" options={{ presentation: 'modal' }} />
           <Stack.Screen name="release/[id]" options={{ headerShown: true, title: 'Release', headerBackButtonDisplayMode: 'minimal' }} />
+          <Stack.Screen name="music-preferences" options={{ headerShown: true, title: 'Music preferences', headerBackButtonDisplayMode: 'minimal' }} />
+          <Stack.Screen name="music-preferences/[section]" options={{ headerShown: true, title: '', headerBackButtonDisplayMode: 'minimal' }} />
           <Stack.Screen name="insights" options={{ headerShown: true, title: 'Insights', headerBackButtonDisplayMode: 'minimal' }} />
         </Stack.Protected>
       </Stack>

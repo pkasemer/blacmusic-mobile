@@ -1,10 +1,11 @@
-import type { ReactNode } from 'react';
+import { useContext, type ReactNode } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, TextInput, View } from 'react-native';
 import { Check, ChevronLeft, Search, X } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from '@/components/Text';
-import { radius } from '@/theme';
+import { radius, useTheme } from '@/theme';
 import { fontStyle } from '@/theme/fonts';
+import { InkContext } from '@/theme/ink';
 import { haptics } from '@/utils/haptics';
 
 /** The colours of onboarding: it is drawn on the brand's flat black in light and dark mode alike. */
@@ -18,8 +19,30 @@ export const ON_BRAND = {
   chosen: 'rgba(187,136,255,0.18)',
 } as const;
 
+/**
+ * The colours of the choice controls: onboarding's own on its black backdrop (which sets the ink), and the app theme's
+ * everywhere else (Music preferences in Settings). `fill` and `onFill` are for solid buttons and ticks.
+ */
+export function useChoiceColors() {
+  const onBrand = useContext(InkContext) !== null;
+  const { colors, isDark } = useTheme();
+  if (onBrand) return { ...ON_BRAND, fill: ON_BRAND.accent, onFill: ON_BRAND.onAccent, keyboard: 'dark' as const };
+  return {
+    accent: colors.accent,
+    text: colors.text,
+    quiet: colors.textTertiary,
+    card: colors.surface,
+    line: colors.borderStrong,
+    chosen: colors.primarySoft,
+    fill: colors.primary,
+    onFill: colors.onPrimary,
+    keyboard: isDark ? ('dark' as const) : ('light' as const),
+  };
+}
+
 /** The big button at the bottom of a screen. */
 export function PrimaryAction({ label, onPress, busy, disabled }: { label: string; onPress: () => void; busy?: boolean; disabled?: boolean }) {
+  const c = useChoiceColors();
   return (
     <Pressable
       onPress={onPress}
@@ -27,12 +50,12 @@ export function PrimaryAction({ label, onPress, busy, disabled }: { label: strin
       accessibilityRole="button"
       accessibilityLabel={label}
       accessibilityState={{ busy: !!busy, disabled: !!busy || !!disabled }}
-      style={({ pressed }) => ({ height: 56, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center', backgroundColor: ON_BRAND.accent, opacity: disabled ? 0.4 : pressed ? 0.85 : 1 })}
+      style={({ pressed }) => ({ height: 56, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center', backgroundColor: c.fill, opacity: disabled ? 0.4 : pressed ? 0.85 : 1 })}
     >
       {busy ? (
-        <ActivityIndicator color={ON_BRAND.onAccent} />
+        <ActivityIndicator color={c.onFill} />
       ) : (
-        <Text variant="bodyStrong" style={{ color: ON_BRAND.onAccent, fontSize: 17 }}>
+        <Text variant="bodyStrong" style={{ color: c.onFill, fontSize: 17 }}>
           {label}
         </Text>
       )}
@@ -135,6 +158,7 @@ export function SetupFrame({
 
 /** A rounded pill that is on or off, with a tick when on. */
 export function TogglePill({ label, on, onPress, hint, role = 'checkbox' }: { label: string; on: boolean; onPress: () => void; hint?: string; role?: 'checkbox' | 'button' }) {
+  const c = useChoiceColors();
   return (
     <Pressable
       onPress={() => {
@@ -154,12 +178,12 @@ export function TogglePill({ label, on, onPress, hint, role = 'checkbox' }: { la
         paddingHorizontal: 14,
         borderRadius: radius.pill,
         borderWidth: 1,
-        borderColor: on ? ON_BRAND.accent : ON_BRAND.line,
-        backgroundColor: on ? ON_BRAND.chosen : 'transparent',
+        borderColor: on ? c.accent : c.line,
+        backgroundColor: on ? c.chosen : 'transparent',
         opacity: pressed ? 0.7 : 1,
       })}
     >
-      {on ? <Check size={14} color={ON_BRAND.accent} strokeWidth={3} /> : null}
+      {on ? <Check size={14} color={c.accent} strokeWidth={3} /> : null}
       <Text variant="bodyStrong" style={{ fontSize: 14 }}>
         {label}
       </Text>
@@ -169,6 +193,7 @@ export function TogglePill({ label, on, onPress, hint, role = 'checkbox' }: { la
 
 /** A selectable card: a title, a line under it, and a mark on the right (a tick, or a dot for one-of-many). */
 export function ChoiceCard({ title, detail, on, onPress, one }: { title: string; detail: string; on: boolean; onPress: () => void; one?: boolean }) {
+  const c = useChoiceColors();
   return (
     <Pressable
       onPress={() => {
@@ -186,8 +211,8 @@ export function ChoiceCard({ title, detail, on, onPress, one }: { title: string;
         padding: 14,
         borderRadius: 14,
         borderWidth: 1,
-        borderColor: on ? ON_BRAND.accent : ON_BRAND.line,
-        backgroundColor: on ? ON_BRAND.chosen : ON_BRAND.card,
+        borderColor: on ? c.accent : c.line,
+        backgroundColor: on ? c.chosen : c.card,
         opacity: pressed ? 0.75 : 1,
       })}
     >
@@ -197,31 +222,32 @@ export function ChoiceCard({ title, detail, on, onPress, one }: { title: string;
           {detail}
         </Text>
       </View>
-      <View style={{ width: 24, height: 24, borderRadius: one ? 12 : 7, borderWidth: 1.5, borderColor: on ? ON_BRAND.accent : ON_BRAND.line, backgroundColor: on ? ON_BRAND.accent : 'transparent', alignItems: 'center', justifyContent: 'center' }}>
-        {on ? <Check size={15} color={ON_BRAND.onAccent} strokeWidth={3} /> : null}
+      <View style={{ width: 24, height: 24, borderRadius: one ? 12 : 7, borderWidth: 1.5, borderColor: on ? c.accent : c.line, backgroundColor: on ? c.fill : 'transparent', alignItems: 'center', justifyContent: 'center' }}>
+        {on ? <Check size={15} color={c.onFill} strokeWidth={3} /> : null}
       </View>
     </Pressable>
   );
 }
 
 export function SearchField({ value, onChange, placeholder }: { value: string; onChange: (text: string) => void; placeholder: string }) {
+  const c = useChoiceColors();
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, height: 48, paddingHorizontal: 16, borderRadius: radius.pill, backgroundColor: ON_BRAND.card, borderWidth: 1, borderColor: ON_BRAND.line }}>
-      <Search size={18} color={ON_BRAND.quiet} />
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, height: 48, paddingHorizontal: 16, borderRadius: radius.pill, backgroundColor: c.card, borderWidth: 1, borderColor: c.line }}>
+      <Search size={18} color={c.quiet} />
       <TextInput
         value={value}
         onChangeText={onChange}
         placeholder={placeholder}
-        placeholderTextColor={ON_BRAND.quiet}
+        placeholderTextColor={c.quiet}
         accessibilityLabel={placeholder}
         autoCorrect={false}
         returnKeyType="search"
-        keyboardAppearance="dark"
-        style={{ flex: 1, ...fontStyle('rounded', '400'), fontSize: 16, color: ON_BRAND.text, paddingVertical: 0 }}
+        keyboardAppearance={c.keyboard}
+        style={{ flex: 1, ...fontStyle('rounded', '400'), fontSize: 16, color: c.text, paddingVertical: 0 }}
       />
       {value ? (
         <Pressable onPress={() => onChange('')} hitSlop={10} accessibilityRole="button" accessibilityLabel="Clear search">
-          <X size={18} color={ON_BRAND.quiet} />
+          <X size={18} color={c.quiet} />
         </Pressable>
       ) : null}
     </View>

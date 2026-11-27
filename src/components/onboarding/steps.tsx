@@ -11,11 +11,12 @@ import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { useOnboardingConfig } from '@/onboarding/useConfig';
 import { useOnboardingStore, type PickedArtist } from '@/store/onboardingStore';
 import { haptics } from '@/utils/haptics';
-import { ChoiceCard, ON_BRAND, SearchField, TogglePill } from './parts';
+import { ChoiceCard, SearchField, TogglePill, useChoiceColors } from './parts';
 
 // ---- Step 2: languages ------------------------------------------------------------------------------
 
 function LanguageGroupCard({ group, open, onOpen }: { group: LanguageGroup; open: boolean; onOpen: () => void }) {
+  const c = useChoiceColors();
   const preferred = useOnboardingStore((s) => s.preferred);
   const understood = useOnboardingStore((s) => s.understood);
   const toggle = useOnboardingStore((s) => s.toggleLanguage);
@@ -26,7 +27,7 @@ function LanguageGroupCard({ group, open, onOpen }: { group: LanguageGroup; open
   const chosen = [enjoyed ? `${enjoyed} enjoyed` : null, known ? `${known} understood` : null].filter(Boolean).join(' · ');
 
   return (
-    <View style={{ borderRadius: 14, borderWidth: 1, borderColor: chosen ? ON_BRAND.accent : ON_BRAND.line, backgroundColor: ON_BRAND.card }}>
+    <View style={{ borderRadius: 14, borderWidth: 1, borderColor: chosen ? c.accent : c.line, backgroundColor: c.card }}>
       <Pressable
         onPress={() => {
           haptics.select();
@@ -48,7 +49,7 @@ function LanguageGroupCard({ group, open, onOpen }: { group: LanguageGroup; open
             </Text>
           ) : null}
         </View>
-        {open ? <ChevronUp size={20} color={ON_BRAND.quiet} /> : <ChevronDown size={20} color={ON_BRAND.quiet} />}
+        {open ? <ChevronUp size={20} color={c.quiet} /> : <ChevronDown size={20} color={c.quiet} />}
       </Pressable>
 
       {open ? (
@@ -58,7 +59,7 @@ function LanguageGroupCard({ group, open, onOpen }: { group: LanguageGroup; open
             <TogglePill role="button" label={hasAll(understood, ids) ? 'Clear understand' : 'Understand all'} on={false} onPress={() => toggleMany('understood', ids)} hint={`${hasAll(understood, ids) ? 'Deselect' : 'Select'} all ${group.label} languages you understand`} />
           </View>
           {group.languages.map((language) => (
-            <View key={language.id} style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, paddingTop: 10, borderTopWidth: 1, borderTopColor: ON_BRAND.line }}>
+            <View key={language.id} style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, paddingTop: 10, borderTopWidth: 1, borderTopColor: c.line }}>
               <Text variant="bodyStrong" style={{ flexGrow: 1, flexBasis: 90 }}>
                 {language.label}
               </Text>
@@ -173,6 +174,7 @@ function ArtistRow({ artist, on, onPress }: { artist: PickedArtist; on: boolean;
 }
 
 export function ArtistStep({ onEmptyCatalogue }: { onEmptyCatalogue: (empty: boolean) => void }) {
+  const c = useChoiceColors();
   const [search, setSearch] = useState('');
   const wanted = useDebouncedValue(search.trim(), 300);
   const picked = useOnboardingStore((s) => s.artists);
@@ -213,10 +215,10 @@ export function ArtistStep({ onEmptyCatalogue }: { onEmptyCatalogue: (empty: boo
                 onPress={() => toggle(a)}
                 accessibilityRole="button"
                 accessibilityLabel={`Remove ${a.name}`}
-                style={{ flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 36, paddingHorizontal: 12, borderRadius: 18, backgroundColor: ON_BRAND.chosen }}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 36, paddingHorizontal: 12, borderRadius: 18, backgroundColor: c.chosen }}
               >
                 <Text variant="caption">{a.name}</Text>
-                <X size={13} color={ON_BRAND.text} />
+                <X size={13} color={c.text} />
               </Pressable>
             ))}
           </View>
@@ -226,7 +228,7 @@ export function ArtistStep({ onEmptyCatalogue }: { onEmptyCatalogue: (empty: boo
       <>
           <SearchField value={search} onChange={setSearch} placeholder="Search artists" />
           {artists.isPending ? (
-            <ActivityIndicator color={ON_BRAND.accent} style={{ paddingVertical: 28 }} />
+            <ActivityIndicator color={c.accent} style={{ paddingVertical: 28 }} />
           ) : artists.isError ? (
             message("Can't load artists", 'Check your connection and try again.', { label: 'Try again', onPress: () => void artists.refetch() })
           ) : artists.data.length === 0 ? (
