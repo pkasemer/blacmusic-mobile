@@ -4,6 +4,7 @@ import Constants from 'expo-constants';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Bell, FileText, HardDrive, History, Info, Mail, Mic, Moon, MoonStar, ShieldCheck, SlidersHorizontal, Smartphone, Sun, Timer, Volume2, VolumeX, Waves, type LucideIcon, Image as ImageIcon, Music, Upload } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { PHOTO_SENT } from '@/domain/review';
 import { clearImageCache, formatBytes, getCacheStats, type CacheStats } from '@/cache/imageCache';
 import { formatCountdown, useSleepRemaining } from '@/audio/sleepTimer';
 import { Avatar } from '@/components/Avatar';
@@ -90,6 +91,10 @@ function ProfileCard() {
       await authApi.updateProfile({ avatarImageId: imageId });
       await afterChange();
       haptics.success();
+      // For an artist, listeners see the new picture only once it is verified.
+      await refreshArtist();
+      const artist = useArtistStore.getState().profile;
+      if (artist?.reviewRequired && artist.review?.status === 'pending') Alert.alert(PHOTO_SENT.title, PHOTO_SENT.message);
     } catch (e) {
       haptics.error();
       Alert.alert("Couldn't change your photo", e instanceof Error ? e.message : 'Try again.');

@@ -1,8 +1,9 @@
 import { useCallback, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BadgeCheck, ChevronRight, HardDrive, Upload } from 'lucide-react-native';
+import { studioApi } from '@/api/blac/studio';
 import { useQuota, useStudioItems } from '@/api/blac/queries';
 import { USES_BACKEND, blacApi } from '@/api/blac';
 import { Artwork } from '@/components/Artwork';
@@ -10,7 +11,7 @@ import { Avatar } from '@/components/Avatar';
 import { InsightsSummary } from '@/components/Insights';
 import { Chip } from '@/components/Chip';
 import { formatGoLive } from '@/components/DateTimeField';
-import { isBeingVerified, standingOf, type StandingTone } from '@/domain/review';
+import { isBeingVerified, profileNote, standingOf, type StandingTone } from '@/domain/review';
 import { SettingsGroup, SettingsRow, chooseOne, useGroupedColors } from '@/components/SettingsList';
 import { SuspendedStudio } from '@/components/SuspendedStudio';
 import { TabScreen } from '@/components/TabScreen';
@@ -31,23 +32,64 @@ import { topInset } from '@/utils/platform';
 /** Who you are in the Studio: your artist picture, name and whether you are verified. */
 function ArtistCard() {
   const profile = useArtistStore((s) => s.profile);
+  const { colors } = useTheme();
   const g = useGroupedColors();
   if (!profile) return null;
   const verified = profile.verification === 'verified';
+  const note = profileNote(profile.review);
+  // The artist sees what they sent; the note says what listeners see meanwhile.
+  const name = profile.pending?.name ?? profile.name;
+  const canWithdraw = profile.review?.status === 'pending' && profile.review.kind === 'update';
+
+  const withdraw = () => {
+    haptics.warning();
+    Alert.alert('Withdraw your profile changes?', 'They are dropped. Listeners keep seeing your approved profile.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Withdraw',
+        style: 'destructive',
+        onPress: () =>
+          void studioApi
+            .withdrawProfileReview()
+            .then(() => refreshArtist())
+            .catch((e: unknown) => Alert.alert("Couldn't withdraw them", e instanceof Error ? e.message : 'Try again.')),
+      },
+    ]);
+  };
+
   return (
-    <View style={{ marginHorizontal: 16, borderRadius: 12, borderCurve: 'continuous', backgroundColor: g.cell, flexDirection: 'row', alignItems: 'center', gap: 14, padding: 14 }}>
-      <Avatar url={profile.avatarUrl} name={profile.name} size={56} />
-      <View style={{ flex: 1, gap: 2 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-          <Text variant="title" numberOfLines={1} style={{ flexShrink: 1 }}>
-            {profile.name}
+    <View style={{ marginHorizontal: 16, borderRadius: 12, borderCurve: 'continuous', backgroundColor: g.cell, padding: 14, gap: 12 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+        <Avatar url={profile.pending?.avatarUrl ?? profile.avatarUrl} name={name} size={56} />
+        <View style={{ flex: 1, gap: 2 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Text variant="title" numberOfLines={1} style={{ flexShrink: 1 }}>
+              {name}
+            </Text>
+            {verified ? <VerifiedBadge size={18} /> : null}
+          </View>
+          <Text variant="caption" color="textSecondary">
+            {verified ? 'Verified artist' : 'Artist'}
           </Text>
-          {verified ? <VerifiedBadge size={18} /> : null}
         </View>
-        <Text variant="caption" color="textSecondary">
-          {verified ? 'Verified artist' : 'Artist'}
-        </Text>
       </View>
+      {note ? (
+        <View style={{ gap: 3, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 10 }} accessibilityLiveRegion="polite">
+          <Text variant="bodyStrong" color={note.refused ? 'danger' : 'accent'}>
+            {note.title}
+          </Text>
+          <Text variant="caption" color="textSecondary">
+            {note.text}
+          </Text>
+          {canWithdraw ? (
+            <Pressable onPress={withdraw} accessibilityRole="button" hitSlop={6} style={{ alignSelf: 'flex-start', paddingTop: 4 }}>
+              <Text variant="bodyStrong" color="accent">
+                Withdraw changes
+              </Text>
+            </Pressable>
+          ) : null}
+        </View>
+      ) : null}
     </View>
   );
 }

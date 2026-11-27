@@ -170,6 +170,8 @@ export function routeForNotification(data: PushData | undefined): { pathname: st
       return { pathname: '/youtube/transfer/[id]', params: { id } };
     case 'release':
       return { pathname: '/release/[id]', params: { id } };
+    case 'artist_profile':
+      return { pathname: '/studio', params: { id } };
     case 'album':
       return { pathname: '/album/[id]', params: { id } };
     case 'artist':

@@ -64,3 +64,30 @@ export const CHANGE_SENT = {
   title: 'Sent for verification',
   message: "Listeners see the current version until the Blac team approves your change. We'll email you and send a notification.",
 };
+
+/** What to tell an artist about their own profile (name, picture, bio), or `null` when nothing waits or was refused. */
+export function profileNote(review: Review | undefined): { title: string; text: string; refused: boolean } | null {
+  if (!review) return null;
+  const what = review.changes.length > 0 ? review.changes.join(', ') : 'your changes';
+  if (review.status === 'rejected') {
+    return {
+      title: review.kind === 'new' ? 'Profile needs changes' : 'Profile changes not approved',
+      text: review.reason ?? 'The Blac team did not approve them.',
+      refused: true,
+    };
+  }
+  return {
+    title: 'Profile pending verification',
+    text:
+      review.kind === 'new'
+        ? "Listeners can't see your artist profile until the Blac team approves it. You can upload while you wait."
+        : `Waiting: ${what}. Listeners see your approved profile until then.`,
+    refused: false,
+  };
+}
+
+/** Said after a new artist photo was sent for verification. */
+export const PHOTO_SENT = {
+  title: 'Sent for verification',
+  message: 'You see your new photo on your account. Listeners see your current artist picture until the Blac team approves the new one.',
+};

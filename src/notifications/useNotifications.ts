@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useRouter } from 'expo-router';
 import * as Notifications from 'expo-notifications';
+import { refreshArtist } from '@/studio/refreshArtist';
 import { queryClient } from '@/api/queryClient';
 import { useOnboardingStore } from '@/store/onboardingStore';
 import { useSettingsStore } from '@/store/settingsStore';
@@ -9,6 +10,7 @@ import { enablePushByDefault, routeForNotification, type PushData } from './push
 /** Reads Studio and the artist profile again. */
 function refreshStatuses() {
   void queryClient.invalidateQueries({ queryKey: ['studio'] });
+  void refreshArtist();
 }
 
 /**

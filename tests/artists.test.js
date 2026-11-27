@@ -64,3 +64,15 @@ test('where a release stands with verification', () => {
   assert.deepStrictEqual([pending, refused, change, toReview(null), toReview({ status: 'approved' })].map(isBeingVerified), [true, false, false, false, false]);
   assert.strictEqual(pending.publishAt, Date.parse('2027-01-01T10:00:00Z'));
 });
+
+test('an artist is told where their profile stands', () => {
+  const { profileNote, toReview } = makeLoader()('domain/review');
+  assert.strictEqual(profileNote(undefined), null);
+  assert.match(profileNote(toReview({ status: 'pending', kind: 'new' })).text, /can't see your artist profile/);
+  assert.match(profileNote(toReview({ status: 'pending', kind: 'update', changes: ['Name', 'Photo'] })).text, /Waiting: Name, Photo/);
+  assert.deepStrictEqual(profileNote(toReview({ status: 'rejected', kind: 'update', reason: 'The photo is not you.' })), {
+    title: 'Profile changes not approved',
+    text: 'The photo is not you.',
+    refused: true,
+  });
+});

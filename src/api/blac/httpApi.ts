@@ -67,6 +67,8 @@ interface WireArtist {
   banned?: boolean;
   /** Only on your own profile. */
   reviewRequired?: boolean;
+  review?: WireReview | null;
+  pending?: { name?: string | null; bio?: string | null; imageUrl?: string | null } | null;
 }
 
 interface WireUploadSummary {
@@ -164,6 +166,8 @@ const toArtist = (a: WireArtist): Artist => ({
   following: a.following,
   suspended: a.banned === true ? true : undefined,
   reviewRequired: a.reviewRequired === true ? true : undefined,
+  review: toReview(a.review),
+  pending: a.pending ? { name: a.pending.name ?? undefined, bio: a.pending.bio ?? undefined, avatarUrl: reachable(a.pending.imageUrl) } : undefined,
 });
 
 const toPodcast = (s: WireShow): Podcast => ({

@@ -200,6 +200,11 @@ export const studioApi = {
     await apiRequest<unknown>(`/v1/releases/${encodeURIComponent(id)}/review/withdraw`, { method: 'POST', body: {} });
   },
 
+  /** Drops the artist's profile changes that are waiting for verification. */
+  async withdrawProfileReview(): Promise<void> {
+    await apiRequest<unknown>('/v1/me/artist/review/withdraw', { method: 'POST', body: {} });
+  },
+
   async deleteRelease(id: string): Promise<void> {
     await apiRequest<void>(`/v1/releases/${encodeURIComponent(id)}`, { method: 'DELETE' });
   },

@@ -25,6 +25,10 @@ export interface Artist {
   suspended?: boolean;
   /** This artist's releases and changes are verified by the Blac team before listeners see them. Own profile only. */
   reviewRequired?: boolean;
+  /** Own profile only: the profile, or changes to it, waiting for verification or refused. */
+  review?: Review;
+  /** Own profile only: what was sent and is waiting. The other fields are what listeners see. */
+  pending?: { name?: string; bio?: string; avatarUrl?: string | null };
 }
 
 export type ReleaseType = 'single' | 'ep' | 'album' | 'podcast-episode';

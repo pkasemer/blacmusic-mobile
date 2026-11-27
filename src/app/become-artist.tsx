@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, TextInput, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, TextInput, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { profileNote } from '@/domain/review';
 import { ApiError, blacApi, USES_BACKEND } from '@/api/blac';
 import { syncAccount } from '@/auth/session';
 import { Text } from '@/components/Text';
@@ -49,6 +50,8 @@ export default function BecomeArtistScreen() {
       const artist = await blacApi.createArtistProfile({ name, bio });
       setProfile(artist);
       haptics.success();
+      const note = profileNote(artist.review);
+      if (note) Alert.alert(note.title, note.text);
       router.replace('/(tabs)/studio');
     } catch (e) {
       if (e instanceof ApiError && e.code === 'email_not_verified') {
