@@ -1,6 +1,7 @@
 import { ActivityIndicator, Pressable, ScrollView, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Check, ListMusic, Play, RefreshCw } from 'lucide-react-native';
+import { usePlaylist } from '@/api/blac/queries';
 import { playQueue } from '@/audio/music/musicEngine';
 import { YOUR_SOUND_NAME } from '@/onboarding/yourSoundRules';
 import { useOnboardingStore } from '@/store/onboardingStore';
@@ -22,11 +23,14 @@ export function YourSoundSheet() {
   const { colors } = useTheme();
   const router = useRouter();
   const show = useOnboardingStore((s) => s.showStarter);
-  const songs = useOnboardingStore((s) => s.starter);
+  const starter = useOnboardingStore((s) => s.starter);
   const update = useOnboardingStore((s) => s.update);
   const playlistId = useYourSoundStore((s) => s.playlistId);
   const saving = useYourSoundStore((s) => s.saving);
   const saved = !!playlistId && !saving;
+  // What the saved playlist really holds (the server may have filled it); until then, the songs from the picks.
+  const kept = usePlaylist(show && saved ? playlistId : '').data?.tracks;
+  const songs = kept?.length ? kept : starter;
 
   const play = (from: number) => playQueue(songs, from, { shuffle: false, source: playlistId ? { type: 'playlist', id: playlistId, name: YOUR_SOUND_NAME } : undefined });
 

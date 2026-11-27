@@ -3,7 +3,7 @@ const assert = require('node:assert');
 const makeLoader = require('./load');
 
 /** "Your sound" against a stand-in server that keeps playlists, with no route of its own for it. */
-function setup() {
+function setup(serverId) {
   class ApiError extends Error {
     constructor(status) {
       super('x');
@@ -43,6 +43,7 @@ function setup() {
     '@/api/blac/http': {
       ApiError,
       apiRequest: async () => {
+        if (serverId) return { playlistId: serverId };
         throw new ApiError(404);
       },
     },
@@ -82,4 +83,10 @@ test('a deleted one is made again', async () => {
   t.playlists.clear();
   await t.keepYourSound([t.track('a')]);
   assert.deepStrictEqual(t.playlists.get('p2').songs, ['fresh1', 'fresh2']);
+});
+
+test('once the server keeps it, the app makes and changes nothing', async () => {
+  const t = setup('srv1');
+  await t.keepYourSound([t.track('a')]);
+  assert.deepStrictEqual([t.store.playlistId, t.store.saving, t.playlists.size], ['srv1', false, 0]);
 });

@@ -81,6 +81,7 @@ async function run(userId: string, first: Track[]) {
   const same = () => useAuthStore.getState().user?.id === userId;
   store().switchTo(userId);
   const hadOne = store().playlistId !== null;
+  if (!hadOne) store().update({ saving: true });
 
   const kept = await serverPlaylistId();
   if (!same()) return;
