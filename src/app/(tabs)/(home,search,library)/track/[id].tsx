@@ -18,11 +18,13 @@ import { FavouriteButton } from '@/components/FavouriteButton';
 import { ActionButton, DetailActions, useSecondaryButton } from '@/components/DetailActions';
 import { AddToPlaylistSheet } from '@/components/PlaylistSheets';
 import { ScreenState } from '@/components/ScreenState';
-import { ArtistName } from '@/components/ArtistName';
+import { SongArtists } from '@/components/SongArtists';
+import { SongArtistsSheet } from '@/components/SongArtistsSheet';
 import { Text } from '@/components/Text';
 import { TrackRow } from '@/components/TrackRow';
 import { useTrackMenu } from '@/components/TrackActionSheet';
 import { TabScreen } from '@/components/TabScreen';
+import { artistLine, artistsOf } from '@/domain/artists';
 import { useTheme } from '@/theme';
 import { formatDate } from '@/utils/format';
 
@@ -95,6 +97,7 @@ export default function TrackScreen() {
   const [adding, setAdding] = useState(false);
   const credits = useTrackCredits(id);
   const menu = useTrackMenu();
+  const [showingArtists, setShowingArtists] = useState(false);
 
   if (query.isPending) {
     return (
@@ -135,17 +138,12 @@ export default function TrackScreen() {
             <Artwork id={track.id} logoUrl={track.artworkLargeUrl ?? track.artworkUrl} size={cover} />
           </HeroCover>
           <HeroTitle>{track.title}</HeroTitle>
-          {track.artistId ? (
-            <Pressable
-              onPress={() => router.push({ pathname: '/artist/[id]', params: { id: track.artistId } })}
-              accessibilityRole="button"
-              accessibilityLabel={`Open artist ${track.artistName}`}
-              hitSlop={8}
-            >
-              <ArtistName name={track.artistName} verified={track.artistVerified} variant="body" color="accent" style={{ justifyContent: 'center' }} textStyle={{ fontWeight: '600' }} />
+          {artistsOf(track).some((x) => x.id) ? (
+            <Pressable onPress={() => setShowingArtists(true)} accessibilityRole="button" accessibilityLabel={`${artistLine(track)}. Show artists`} hitSlop={8} style={{ maxWidth: '100%', paddingHorizontal: 24 }}>
+              <SongArtists item={track} variant="body" color="accent" style={{ justifyContent: 'center' }} textStyle={{ fontWeight: '600' }} />
             </Pressable>
           ) : (
-            <ArtistName name={track.artistName} verified={track.artistVerified} variant="body" color="textSecondary" style={{ justifyContent: 'center' }} />
+            <SongArtists item={track} variant="body" color="textSecondary" style={{ justifyContent: 'center' }} />
           )}
           <HeroMeta>{[track.albumTitle, track.genre, formatTime(track.durationSec)].filter(Boolean).join(' · ')}</HeroMeta>
           {track.explicit ? <Chip label="Explicit" glass /> : null}
@@ -162,7 +160,7 @@ export default function TrackScreen() {
               {/* An unpublished song (an artist's own preview) cannot be shared, queued or added to a playlist. */}
               {track.preview ? null : (
                 <>
-                  <ShareLinkButton label={`Share ${track.title}`} message={`Listen to "${track.title}" by ${track.artistName} on Blac`} path={`/track/${track.id}`} />
+                  <ShareLinkButton label={`Share ${track.title}`} message={`Listen to "${track.title}" by ${artistLine(track)} on Blac`} path={`/track/${track.id}`} />
                   <ActionButton label="Queue" hint="Add to queue" icon={<ListEnd size={18} color={button.ink} />} onPress={() => addToQueue(track)} />
                   <ActionButton label="Playlist" hint="Add to playlist" icon={<ListPlus size={18} color={button.ink} />} onPress={() => setAdding(true)} />
                 </>
@@ -182,12 +180,12 @@ export default function TrackScreen() {
                 onPress={() => router.push({ pathname: '/album/[id]', params: { id: track.releaseId as string } })}
               />
             ) : null}
-            {track.artistId ? (
+            {artistsOf(track).some((x) => x.id) ? (
               <LinkRow
                 icon={<UserRound size={20} color={colors.accent} />}
-                label="Artist"
-                detail={track.artistName}
-                onPress={() => router.push({ pathname: '/artist/[id]', params: { id: track.artistId } })}
+                label={artistsOf(track).length > 1 ? 'Artists' : 'Artist'}
+                detail={artistLine(track)}
+                onPress={() => setShowingArtists(true)}
               />
             ) : null}
             <InfoRow label="Length" value={formatTime(track.durationSec)} last={!track.genre && !released} />
@@ -213,6 +211,7 @@ export default function TrackScreen() {
       </Animated.ScrollView>
       <AddToPlaylistSheet track={adding ? track : null} onClose={() => setAdding(false)} />
       {menu.sheet}
+      <SongArtistsSheet track={showingArtists ? (track ?? null) : null} onClose={() => setShowingArtists(false)} onOpen={(artistId) => router.push({ pathname: '/artist/[id]', params: { id: artistId } })} />
     </TabScreen>
   );
 }

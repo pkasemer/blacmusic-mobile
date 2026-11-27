@@ -16,10 +16,12 @@ import { useFavouritesStore, useIsFavourite } from '@/store/favouritesStore';
 import { useMusicStore } from '@/store/musicStore';
 import { radius, useTheme } from '@/theme';
 import { haptics } from '@/utils/haptics';
+import { artistLine, artistsOf } from '@/domain/artists';
 import { shareLink } from '@/utils/share';
 import { Artwork } from './Artwork';
 import { AddToPlaylistSheet } from './PlaylistSheets';
-import { ArtistName } from './ArtistName';
+import { SongArtists } from './SongArtists';
+import { SongArtistsSheet } from './SongArtistsSheet';
 import { Text } from './Text';
 
 const CLOSE_MS = 200;
@@ -77,11 +79,13 @@ function TrackActionSheet({
   options,
   onClose,
   onAddToPlaylist: openAddToPlaylist,
+  onArtists: openArtists,
 }: {
   track: Track | null;
   options?: TrackMenuOptions;
   onClose: () => void;
   onAddToPlaylist: (track: Track) => void;
+  onArtists: (track: Track) => void;
 }) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
@@ -150,16 +154,13 @@ function TrackActionSheet({
     haptics.select();
     const url = Linking.createURL(`/track/${track.id}`);
     dismiss(() => {
-      void shareLink(`Listen to "${track.title}" by ${track.artistName} on Blac`, url);
+      void shareLink(`Listen to "${track.title}" by ${artistLine(track)} on Blac`, url);
     });
   };
 
   const onArtist = () => {
     haptics.select();
-    dismiss(() => {
-      options?.onNavigate?.();
-      router.push({ pathname: '/artist/[id]', params: { id: track.artistId } });
-    });
+    dismiss(() => openArtists(track));
   };
 
   const onMix = async () => {
@@ -213,7 +214,7 @@ function TrackActionSheet({
                 <Text variant="headline" numberOfLines={1}>
                   {track.title}
                 </Text>
-                <ArtistName name={track.artistName} verified={track.artistVerified} />
+                <SongArtists item={track} />
               </View>
             </View>
             <View style={{ height: 1, backgroundColor: colors.border, marginBottom: 6 }} />
@@ -262,7 +263,9 @@ function TrackActionSheet({
               disabled={!!blocked && !download}
             />
             <ActionRow icon={<Share2 size={22} color={iconColor} />} label="Share" onPress={onShare} />
-            {track.artistId ? <ActionRow icon={<UserRound size={22} color={iconColor} />} label="Go to artist" detail={track.artistName} onPress={onArtist} /> : null}
+            {artistsOf(track).some((a) => a.id) ? (
+              <ActionRow icon={<UserRound size={22} color={iconColor} />} label={artistsOf(track).length > 1 ? 'Go to artists' : 'Go to artist'} detail={artistLine(track)} onPress={onArtist} />
+            ) : null}
           </Animated.View>
         </View>
       ) : null}
@@ -281,16 +284,32 @@ export interface TrackMenuOptions {
 
 /**
  * Hook for the three-dots menu: `menu.open(track)` from a row's "more" button, and render `menu.sheet` once
- * anywhere in the screen. It also hosts the "Add to playlist" sheet the menu leads to.
+ * anywhere in the screen. It also hosts the sheets the menu leads to: "Add to playlist" and the song's artists.
  */
 export function useTrackMenu(): { open: (track: Track, options?: TrackMenuOptions) => void; sheet: ReactElement } {
   const [open, setOpen] = useState<{ track: Track; options?: TrackMenuOptions } | null>(null);
   const [adding, setAdding] = useState<Track | null>(null);
+  const [artists, setArtists] = useState<{ track: Track; onNavigate?: () => void } | null>(null);
+  const router = useRouter();
   return {
     open: (track, options) => setOpen({ track, options }),
     sheet: (
       <>
-        <TrackActionSheet track={open?.track ?? null} options={open?.options} onClose={() => setOpen(null)} onAddToPlaylist={setAdding} />
+        <TrackActionSheet
+          track={open?.track ?? null}
+          options={open?.options}
+          onClose={() => setOpen(null)}
+          onAddToPlaylist={setAdding}
+          onArtists={(track) => setArtists({ track, onNavigate: open?.options?.onNavigate })}
+        />
+        <SongArtistsSheet
+          track={artists?.track ?? null}
+          onClose={() => setArtists(null)}
+          onOpen={(id) => {
+            artists?.onNavigate?.();
+            router.push({ pathname: '/artist/[id]', params: { id } });
+          }}
+        />
         <AddToPlaylistSheet track={adding} onClose={() => setAdding(null)} />
       </>
     ),

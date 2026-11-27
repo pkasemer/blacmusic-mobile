@@ -22,7 +22,7 @@ import type { Playable, Track } from '@/domain/types';
 import { useMusicStore } from '@/store/musicStore';
 import type { Ink } from '@/theme/ink';
 import { haptics } from '@/utils/haptics';
-import { ArtistName } from './ArtistName';
+import { SongArtists } from './SongArtists';
 import { Artwork } from './Artwork';
 import { Equalizer } from './Equalizer';
 import { Text } from './Text';
@@ -146,7 +146,7 @@ function SongButton({ entry, onPress }: { entry: Playable; onPress: () => void }
         <Text variant="bodyStrong" numberOfLines={1}>
           {entry.title}
         </Text>
-        <ArtistName name={subtitleOf(entry)} verified={entry.kind === 'track' ? entry.artistVerified : false} />
+        <SongArtists item={entry} />
       </View>
     </Pressable>
   );

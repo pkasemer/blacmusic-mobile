@@ -35,6 +35,8 @@ export interface Track {
   artistName: string;
   /** The artist has the verified badge. Absent when the backend did not say. */
   artistVerified?: boolean;
+  /** Artists featured on the song, besides `artistName`. Absent when there are none, or the server does not say. */
+  featuredArtists?: { id: string | null; name: string; imageUrl?: string | null; verified?: boolean }[];
   /** The song has lyrics. Absent when the backend did not say (the player then tries to load them). */
   hasLyrics?: boolean;
   /** The artist's profile picture, when the backend sends it with the track. */

@@ -16,12 +16,12 @@ import {
 } from '@/audio/music/musicEngine';
 import { useSleepRemaining, formatCountdown } from '@/audio/sleepTimer';
 import { useArtworkPalette } from '@/hooks/useArtworkTint';
+import type { Track } from '@/domain/types';
 import { useCurrentItem, useMusicStore } from '@/store/musicStore';
 import { radius } from '@/theme';
 import { InkContext, type Ink } from '@/theme/ink';
 import { haptics } from '@/utils/haptics';
 import { AirPlayButton } from './AirPlayButton';
-import { ArtistName } from './ArtistName';
 import { Artwork } from './Artwork';
 import { FavouriteButton } from './FavouriteButton';
 import { LyricsView } from './LyricsView';
@@ -32,6 +32,8 @@ import { SeekBar } from './SeekBar';
 import { SleepTimerSheet } from './SleepTimerSheet';
 import { Text } from './Text';
 import { useTrackMenu } from './TrackActionSheet';
+import { SongArtists } from './SongArtists';
+import { SongArtistsSheet } from './SongArtistsSheet';
 import { subtitleOf } from './TrackRow';
 
 const SPRING = { damping: 28, stiffness: 240, mass: 0.9 };
@@ -131,6 +133,8 @@ export function MusicFullPlayer() {
   const setMusic = useMusicStore((s) => s.set);
   const [panel, setPanel] = useState<Panel>('cover');
   const [sleepOpen, setSleepOpen] = useState(false);
+  // The song whose artists are listed.
+  const [artistsOfTrack, setArtistsOfTrack] = useState<Track | null>(null);
   const sleepRemaining = useSleepRemaining();
   const router = useRouter();
   const menu = useTrackMenu();
@@ -212,11 +216,13 @@ export function MusicFullPlayer() {
     setPanel((current) => (current === next ? 'cover' : next));
   };
 
-  const openArtist = () =>
-    goTo(() => {
-      if (item.kind === 'track') router.push({ pathname: '/artist/[id]', params: { id: item.artistId } });
-      else router.push({ pathname: '/podcast/[id]', params: { id: item.podcastId } });
-    });
+  /** A song's names first show everyone on it; a podcast's name opens the podcast. */
+  const openArtist = () => {
+    if (item.kind === 'track') {
+      haptics.select();
+      setArtistsOfTrack(item);
+    } else goTo(() => router.push({ pathname: '/podcast/[id]', params: { id: item.podcastId } }));
+  };
 
   /** The song and artist names, left aligned. The song opens its page; the artist (or podcast) opens theirs. */
   const titleBlock = (compact: boolean) => (
@@ -235,13 +241,12 @@ export function MusicFullPlayer() {
       </Pressable>
       <Pressable
         onPress={openArtist}
-        disabled={item.kind === 'track' && !item.artistId}
         hitSlop={6}
         accessibilityRole="button"
-        accessibilityLabel={`${subtitleOf(item)}. Open ${item.kind === 'track' ? 'artist' : 'podcast'}`}
+        accessibilityLabel={`${subtitleOf(item)}. ${item.kind === 'track' ? 'Show artists' : 'Open podcast'}`}
         style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1, alignSelf: 'flex-start', maxWidth: '100%' })}
       >
-        <ArtistName name={subtitleOf(item)} verified={item.kind === 'track' ? item.artistVerified : false} variant={compact ? 'caption' : 'body'} color="textSecondary" />
+        <SongArtists item={item} variant={compact ? 'caption' : 'body'} color="textSecondary" />
       </Pressable>
     </View>
   );
@@ -432,6 +437,7 @@ export function MusicFullPlayer() {
         </View>
       </InkContext.Provider>
       <SleepTimerSheet visible={sleepOpen} onClose={() => setSleepOpen(false)} />
+      <SongArtistsSheet track={artistsOfTrack} onClose={() => setArtistsOfTrack(null)} onOpen={(id) => goTo(() => router.push({ pathname: '/artist/[id]', params: { id } }))} />
       {menu.sheet}
     </Animated.View>
   );

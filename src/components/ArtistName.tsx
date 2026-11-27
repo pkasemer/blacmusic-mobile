@@ -21,6 +21,7 @@ export function ArtistName({
   style,
   textStyle,
   trailing,
+  others,
 }: {
   name: string;
   verified?: boolean;
@@ -34,20 +35,31 @@ export function ArtistName({
   textStyle?: TextProps['style'];
   /** Something after the badge on the same line. */
   trailing?: ReactNode;
+  /** More names on the same line, after the badge: ", Ava, Ben". */
+  others?: string;
 }) {
   const size = badgeSize ?? (variant === 'caption' ? 13 : variant === 'title' || variant === 'display' ? 20 : 16);
   return (
-    <View style={[{ flexDirection: 'row', alignItems: 'center', gap: 4, flexShrink: 1 }, style]}>
+    <View style={[{ flexDirection: 'row', alignItems: 'center', flexShrink: 1 }, style]}>
       {prefix ? (
-        <Text variant={variant} color={color} style={textStyle}>
+        <Text variant={variant} color={color} style={[{ marginRight: 4 }, textStyle]}>
           {prefix}
         </Text>
       ) : null}
       <Text variant={variant} color={color} numberOfLines={numberOfLines} style={[{ flexShrink: 1 }, textStyle]}>
         {name}
       </Text>
-      {verified ? <VerifiedBadge size={size} /> : null}
-      {trailing}
+      {verified ? (
+        <View style={{ marginLeft: 4 }}>
+          <VerifiedBadge size={size} />
+        </View>
+      ) : null}
+      {others ? (
+        <Text variant={variant} color={color} numberOfLines={numberOfLines} style={[{ flexShrink: 100 }, textStyle]}>
+          {others}
+        </Text>
+      ) : null}
+      {trailing ? <View style={{ marginLeft: 4 }}>{trailing}</View> : null}
     </View>
   );
 }

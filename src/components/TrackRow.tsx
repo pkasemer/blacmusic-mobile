@@ -2,17 +2,19 @@ import { memo } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { ArrowDownCircle, CircleArrowDown, Ellipsis, Play } from 'lucide-react-native';
 import { formatTime } from '@/audio/music/queue';
+import { artistLine } from '@/domain/artists';
 import type { Playable } from '@/domain/types';
 import { useDownload } from '@/store/downloadStore';
 import { useMusicStore } from '@/store/musicStore';
 import { useTheme } from '@/theme';
-import { ArtistName } from './ArtistName';
 import { Artwork } from './Artwork';
 import { Equalizer } from './Equalizer';
+import { SongArtists } from './SongArtists';
 import { TagPill } from './SearchResultRow';
 import { Text } from './Text';
 
-export const subtitleOf = (item: Playable) => (item.kind === 'track' ? item.artistName : item.podcastTitle);
+/** Every artist of a song, or the podcast of an episode, as one line of text. */
+export const subtitleOf = artistLine;
 
 const PAD = 20;
 const GAP = 14;
@@ -122,7 +124,7 @@ function TrackRowBase({ item, onPress, compact, index, onPlay, onMore, tag, deta
           ) : download ? (
             <CircleArrowDown size={14} color={colors.textTertiary} />
           ) : null}
-          <ArtistName name={subtitleOf(item)} verified={item.kind === 'track' ? item.artistVerified : false} />
+          <SongArtists item={item} />
 
           {detail ? (
             <Text variant="caption" color={detailTone === 'danger' ? 'danger' : 'textTertiary'} numberOfLines={1}>

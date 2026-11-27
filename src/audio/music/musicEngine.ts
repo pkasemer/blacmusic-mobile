@@ -1,5 +1,6 @@
 import { Alert } from 'react-native';
 import { createAudioPlaylist, type AudioPlaylist, type AudioSource as ExpoAudioSource } from 'expo-audio';
+import { artistLine } from '@/domain/artists';
 import { blacApi } from '@/api/blac';
 import type { Playable, Track } from '@/domain/types';
 import { localUriFor } from '@/store/downloadStore';
@@ -139,7 +140,7 @@ function cannotPlay() {
 function metadataFor(item: Playable) {
   return item.kind === 'track'
     ? // The biggest cover there is: the system also shows it large, on the lock screen and on a TV over AirPlay.
-      { title: item.title, artist: item.artistName, albumTitle: item.albumTitle ?? undefined, artworkUrl: item.artworkLargeUrl ?? item.artworkUrl ?? undefined }
+      { title: item.title, artist: artistLine(item), albumTitle: item.albumTitle ?? undefined, artworkUrl: item.artworkLargeUrl ?? item.artworkUrl ?? undefined }
     : { title: item.title, artist: item.podcastTitle, albumTitle: item.podcastTitle, artworkUrl: item.artworkUrl ?? undefined };
 }
 

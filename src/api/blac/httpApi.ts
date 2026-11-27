@@ -35,6 +35,7 @@ interface WireTrack {
   artistId?: string;
   artistName: string;
   artistVerified?: boolean;
+  featuredArtists?: { artistId?: string; name: string; imageUrl?: string | null; verified?: boolean }[] | null;
   hasLyrics?: boolean;
   albumId?: string | null;
   albumTitle?: string | null;
@@ -120,6 +121,7 @@ const toTrack = (t: WireTrack): Track => ({
   artistId: t.artistId ?? '',
   artistName: t.artistName,
   artistVerified: t.artistVerified,
+  featuredArtists: t.featuredArtists?.map((a) => ({ id: a.artistId || null, name: a.name, imageUrl: reachable(a.imageUrl), verified: a.verified })),
   hasLyrics: t.hasLyrics,
   releaseId: t.albumId ?? null,
   albumTitle: t.albumTitle ?? null,
