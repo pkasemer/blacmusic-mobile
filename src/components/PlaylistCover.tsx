@@ -18,7 +18,6 @@ export function PlaylistCover({ playlist, size }: { playlist: Pick<Playlist, 'id
     return <Artwork id={playlist.id} logoUrl={artworkUrls[0]} size={size} />;
   }
 
-  const cell = size / 2;
   return (
     <View
       style={{
@@ -34,7 +33,11 @@ export function PlaylistCover({ playlist, size }: { playlist: Pick<Playlist, 'id
       }}
     >
       {artworkUrls.slice(0, 4).map((url, i) => (
-        <CachedImage key={`${i}-${url}`} uri={url} style={{ width: cell, height: cell }} resizeMode="cover" />
+        // Half of the space inside the border (half of `size` is too wide: two would not fit side by side). The box
+        // holds the place while its picture loads.
+        <View key={`${i}-${url}`} style={{ width: '50%', height: '50%' }}>
+          <CachedImage uri={url} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+        </View>
       ))}
     </View>
   );
