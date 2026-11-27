@@ -51,7 +51,8 @@ function ArtistCard() {
         onPress: () =>
           void studioApi
             .withdrawProfileReview()
-            .then(() => refreshArtist())
+            // A withdrawn photo also puts the account's own picture back.
+            .then(() => syncAccount())
             .catch((e: unknown) => Alert.alert("Couldn't withdraw them", e instanceof Error ? e.message : 'Try again.')),
       },
     ]);
