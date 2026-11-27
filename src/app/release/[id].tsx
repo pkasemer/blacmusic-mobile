@@ -480,7 +480,7 @@ function ReleaseScreen() {
               </View>
               {/* The track's tools, right under it */}
               <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8, paddingLeft: 54 }}>
-                <TrackAction label="Lyrics" Icon={MessageSquareQuote} onPress={() => router.push({ pathname: '/release/lyrics', params: { id: t.id, title: t.title } })} />
+                <TrackAction label="Lyrics" Icon={MessageSquareQuote} onPress={() => router.push({ pathname: '/release/lyrics', params: { id: t.id, title: t.title, duration: String(Math.round(t.durationSec ?? 0)) } })} />
                 {draft ? <TrackAction label="Replace audio" Icon={RefreshCw} onPress={() => replaceAudio(t)} /> : null}
                 <TrackAction label="Delete" Icon={Trash2} destructive onPress={() => confirmDeleteTrack(t.id, t.title)} />
               </View>

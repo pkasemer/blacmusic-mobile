@@ -20,6 +20,9 @@ interface SettingsState {
   sleepFadeOut: boolean;
   /** Music streaming quality: low data (48 kbps), standard (128) or high (256). */
   streamQuality: StreamQuality;
+  /** Show the English lines under lyrics that have them. */
+  showTranslations: boolean;
+  setShowTranslations: (showTranslations: boolean) => void;
   setStreamQuality: (value: StreamQuality) => void;
   setThemeMode: (mode: ThemeMode) => void;
   setBackgroundPlayback: (value: boolean) => void;
@@ -39,6 +42,8 @@ export const useSettingsStore = create<SettingsState>()(
       setPushOptOut: (pushOptOut) => set({ pushOptOut }),
       sleepFadeOut: true,
       streamQuality: 'medium',
+      showTranslations: true,
+      setShowTranslations: (showTranslations) => set({ showTranslations }),
       setStreamQuality: (streamQuality) => set({ streamQuality }),
       setThemeMode: (themeMode) => set({ themeMode }),
       setBackgroundPlayback: (backgroundPlayback) => set({ backgroundPlayback }),
