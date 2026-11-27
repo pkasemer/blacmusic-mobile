@@ -138,7 +138,8 @@ function cannotPlay() {
 
 function metadataFor(item: Playable) {
   return item.kind === 'track'
-    ? { title: item.title, artist: item.artistName, albumTitle: item.albumTitle ?? undefined, artworkUrl: item.artworkUrl ?? undefined }
+    ? // The biggest cover there is: the system also shows it large, on the lock screen and on a TV over AirPlay.
+      { title: item.title, artist: item.artistName, albumTitle: item.albumTitle ?? undefined, artworkUrl: item.artworkLargeUrl ?? item.artworkUrl ?? undefined }
     : { title: item.title, artist: item.podcastTitle, albumTitle: item.podcastTitle, artworkUrl: item.artworkUrl ?? undefined };
 }
 
