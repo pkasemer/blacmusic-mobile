@@ -51,3 +51,16 @@ test('credits list each person once for each role, keeping the profile link', ()
     ['Songwriter', ['Ava']],
   ]);
 });
+
+test('where a release stands with verification', () => {
+  const { standingOf, toReview, isBeingVerified } = makeLoader()('domain/review');
+  const pending = toReview({ status: 'pending', kind: 'new', publishAt: '2027-01-01T10:00:00Z' });
+  const refused = toReview({ status: 'rejected', kind: 'new', reason: 'The cover has a phone number on it.' });
+  const change = toReview({ status: 'pending', kind: 'update', changes: ['Credits'] });
+  assert.deepStrictEqual(standingOf('draft', pending), { label: 'Pending verification', tone: 'review' });
+  assert.deepStrictEqual(standingOf('draft', refused), { label: 'Changes needed', tone: 'refused', detail: 'The cover has a phone number on it.' });
+  assert.deepStrictEqual(standingOf('public', change), { label: 'Live', tone: 'live', detail: 'Changes pending verification' });
+  assert.deepStrictEqual(standingOf('public', undefined), { label: 'Live', tone: 'live' });
+  assert.deepStrictEqual([pending, refused, change, toReview(null), toReview({ status: 'approved' })].map(isBeingVerified), [true, false, false, false, false]);
+  assert.strictEqual(pending.publishAt, Date.parse('2027-01-01T10:00:00Z'));
+});

@@ -10,6 +10,7 @@ import { Avatar } from '@/components/Avatar';
 import { InsightsSummary } from '@/components/Insights';
 import { Chip } from '@/components/Chip';
 import { formatGoLive } from '@/components/DateTimeField';
+import { isBeingVerified, standingOf, type StandingTone } from '@/domain/review';
 import { SettingsGroup, SettingsRow, chooseOne, useGroupedColors } from '@/components/SettingsList';
 import { SuspendedStudio } from '@/components/SuspendedStudio';
 import { TabScreen } from '@/components/TabScreen';
@@ -177,25 +178,21 @@ function VerificationRow() {
   );
 }
 
-type Tone = 'live' | 'scheduled' | 'draft' | 'busy' | 'failed';
+type Tone = StandingTone | 'busy' | 'failed';
 
 /** What to tell the artist about a release: one word, a colour, and (for scheduled ones) when. */
 function describe(item: StudioItem): { label: string; tone: Tone; detail?: string } {
   if (item.status === 'failed') return { label: 'Upload failed', tone: 'failed' };
   if (item.status === 'uploading') return { label: 'Uploading', tone: 'busy' };
   if (item.status === 'processing') return { label: 'Processing', tone: 'busy' };
-  if (item.visibility === 'public') return { label: 'Live', tone: 'live' };
-  if (item.visibility === 'scheduled') {
-    return { label: 'Scheduled', tone: 'scheduled', detail: item.publishAt ? formatGoLive(new Date(item.publishAt)) : undefined };
-  }
-  return { label: 'Draft', tone: 'draft', detail: 'Only you can see it' };
+  return standingOf(item.visibility, item.review, item.publishAt ? formatGoLive(new Date(item.publishAt)) : undefined);
 }
 
 /** A small coloured dot and one word: where a release is. */
 function StatusLabel({ item }: { item: StudioItem }) {
   const { colors } = useTheme();
   const { label, tone, detail } = describe(item);
-  const color = tone === 'live' ? colors.success : tone === 'scheduled' ? colors.accent : tone === 'failed' ? colors.danger : colors.textTertiary;
+  const color = tone === 'live' ? colors.success : tone === 'scheduled' || tone === 'review' ? colors.accent : tone === 'failed' || tone === 'refused' ? colors.danger : colors.textTertiary;
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
       {tone === 'busy' ? (
@@ -203,7 +200,7 @@ function StatusLabel({ item }: { item: StudioItem }) {
       ) : (
         <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: color }} />
       )}
-      <Text variant="caption" style={{ color: tone === 'failed' ? colors.danger : colors.textSecondary }} numberOfLines={1}>
+      <Text variant="caption" style={{ flexShrink: 1, color: tone === 'failed' || tone === 'refused' ? colors.danger : colors.textSecondary }} numberOfLines={tone === 'refused' ? 2 : 1}>
         {label}
         {detail ? ` · ${detail}` : ''}
       </Text>
@@ -300,7 +297,7 @@ function InProgress({ items }: { items: StudioItem[] }) {
   );
 }
 
-type Filter = 'all' | 'live' | 'scheduled' | 'draft';
+type Filter = 'all' | 'live' | 'scheduled' | 'draft' | 'review';
 
 /** The tab while the artist is suspended: the title, why the Studio is off, and a way to check again. */
 function SuspendedTab() {
@@ -353,12 +350,18 @@ function StudioHome() {
       all: all.length,
       live: all.filter((i) => i.visibility === 'public').length,
       scheduled: all.filter((i) => i.visibility === 'scheduled').length,
-      draft: all.filter((i) => i.visibility === 'draft').length,
+      draft: all.filter((i) => i.visibility === 'draft' && !isBeingVerified(i.review)).length,
+      review: all.filter((i) => i.review?.status === 'pending').length,
     }),
     [all],
   );
   const shown = useMemo(
-    () => (filter === 'all' ? all : all.filter((i) => i.visibility === (filter === 'live' ? 'public' : filter === 'scheduled' ? 'scheduled' : 'draft'))),
+    () => {
+      if (filter === 'all') return all;
+      if (filter === 'review') return all.filter((i) => i.review?.status === 'pending');
+      if (filter === 'draft') return all.filter((i) => i.visibility === 'draft' && !isBeingVerified(i.review));
+      return all.filter((i) => i.visibility === (filter === 'live' ? 'public' : 'scheduled'));
+    },
     [all, filter],
   );
 
@@ -407,6 +410,9 @@ function StudioHome() {
           </View>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingHorizontal: 16 }}>
             <Chip label={`All · ${counts.all}`} selected={filter === 'all'} onPress={() => setFilter('all')} />
+            {counts.review > 0 || filter === 'review' ? (
+              <Chip label={`Pending verification · ${counts.review}`} selected={filter === 'review'} onPress={() => setFilter('review')} />
+            ) : null}
             <Chip label={`Live · ${counts.live}`} selected={filter === 'live'} onPress={() => setFilter('live')} />
             <Chip label={`Scheduled · ${counts.scheduled}`} selected={filter === 'scheduled'} onPress={() => setFilter('scheduled')} />
             <Chip label={`Drafts · ${counts.draft}`} selected={filter === 'draft'} onPress={() => setFilter('draft')} />

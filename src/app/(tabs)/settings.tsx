@@ -369,7 +369,7 @@ function NotificationsGroup() {
       <SettingsSwitchRow icon={{ Icon: Bell }} title="Push notifications" value={on} onChange={(v) => void change(v)} />
       {on && prefs ? <SettingsSwitchRow title="Imports" value={prefs.transfers} onChange={(v) => flip('transfers', v)} /> : null}
       {on && prefs ? <SettingsSwitchRow title="Releases" value={prefs.releases} onChange={(v) => flip('releases', v)} /> : null}
-      {prefs ? <SettingsSwitchRow icon={{ Icon: Mail }} title="Release emails" subtitle="When your audio is ready and when a release is published." value={prefs.releaseEmails} onChange={(v) => flip('releaseEmails', v)} /> : null}
+      {prefs ? <SettingsSwitchRow icon={{ Icon: Mail }} title="Release emails" subtitle="When your audio is ready, when a release is verified or needs changes, and when it goes live." value={prefs.releaseEmails} onChange={(v) => flip('releaseEmails', v)} /> : null}
     </SettingsGroup>
   );
 }

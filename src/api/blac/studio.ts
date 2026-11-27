@@ -1,4 +1,5 @@
 import type { File } from 'expo-file-system';
+import { toReview, type Review, type WireReview } from '@/domain/review';
 import type { ReleaseType } from '@/domain/types';
 import { reachable } from './config';
 import { sizeOf } from '@/uploads/fileSize';
@@ -45,9 +46,15 @@ export interface ReleaseDetail {
   publishAt: number | null;
   tracks: ReleaseTrack[];
   uploads: PendingUpload[];
+  /** Publishing and changes need the Blac team's verification. */
+  reviewRequired: boolean;
+  /** What is waiting for verification, or was refused. */
+  review?: Review;
 }
 
 interface WireReleaseDetail {
+  reviewRequired?: boolean;
+  review?: WireReview | null;
   id: string;
   type: string;
   title: string;
@@ -80,6 +87,8 @@ const toDetail = (r: WireReleaseDetail): ReleaseDetail => ({
     explicit: t.explicit ?? false,
   })),
   uploads: r.uploads ?? [],
+  reviewRequired: r.reviewRequired === true,
+  review: toReview(r.review),
 });
 
 /** The upload target the backend hands out: one PUT for small files, numbered parts for large ones. */
@@ -171,7 +180,10 @@ export const studioApi = {
     });
   },
 
-  /** Makes a release public now, or schedules it for `publishAt` (epoch ms). */
+  /**
+   * Makes a release public now, or schedules it for `publishAt` (epoch ms). Where verification is needed, this sends it
+   * to the Blac team instead: it stays private until they approve it.
+   */
   async publish(id: string, publishAt?: number): Promise<void> {
     await apiRequest<unknown>(`/v1/releases/${encodeURIComponent(id)}/publish`, {
       method: 'POST',
@@ -181,6 +193,11 @@ export const studioApi = {
 
   async unpublish(id: string): Promise<void> {
     await apiRequest<unknown>(`/v1/releases/${encodeURIComponent(id)}/unpublish`, { method: 'POST', body: {} });
+  },
+
+  /** Takes back what is waiting for verification: a new release is a plain draft again, waiting changes are dropped. */
+  async withdrawReview(id: string): Promise<void> {
+    await apiRequest<unknown>(`/v1/releases/${encodeURIComponent(id)}/review/withdraw`, { method: 'POST', body: {} });
   },
 
   async deleteRelease(id: string): Promise<void> {

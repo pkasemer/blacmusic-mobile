@@ -6,6 +6,7 @@ import { ApiError } from '@/api/blac';
 import { fetchLyricsForEdit, removeLyrics, saveLyrics } from '@/api/blac/lyrics';
 import { LyricsFormatHelp, LyricsProblems } from '@/components/LyricsFormatHelp';
 import { checkLyrics } from '@/domain/lyricsFormat';
+import { CHANGE_SENT, type Review } from '@/domain/review';
 import { PrimaryButton } from '@/components/FormField';
 import { Text } from '@/components/Text';
 import { radius, useTheme } from '@/theme';
@@ -26,6 +27,7 @@ function LyricsEditorScreen() {
   const [loading, setLoading] = useState(true);
   const [original, setOriginal] = useState('');
   const [wasTimed, setWasTimed] = useState(false);
+  const [review, setReview] = useState<Review | undefined>(undefined);
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -38,6 +40,7 @@ function LyricsEditorScreen() {
         setOriginal(current?.text ?? '');
         setText(current?.text ?? '');
         setWasTimed(current?.synced === true);
+        setReview(current?.review);
       })
       .catch(() => {})
       .finally(() => {
@@ -62,10 +65,13 @@ function LyricsEditorScreen() {
     setError(null);
     try {
       let lost = false;
+      let waiting = false;
       if (text.trim() === '') await removeLyrics(id);
-      else lost = (await saveLyrics(id, text)).translationsLost;
+      else ({ translationsLost: lost, pendingReview: waiting } = await saveLyrics(id, text));
       haptics.success();
-      if (lost) Alert.alert('Saved without translations', "The lyrics and their times are saved. Blac can't keep translations yet, so add them again later.");
+      // A change waiting for verification is not on show yet, so there is nothing to compare translations with.
+      if (waiting) Alert.alert(CHANGE_SENT.title, CHANGE_SENT.message);
+      else if (lost) Alert.alert('Saved without translations', "The lyrics and their times are saved. Blac can't keep translations yet, so add them again later.");
       router.back();
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Something went wrong. Try again.');
@@ -107,6 +113,13 @@ function LyricsEditorScreen() {
             {title ? `For “${title}”. ` : ''}Paste or type the lyrics. Add time stamps to make them follow the song.
           </Text>
         </View>
+        {review ? (
+          <Text variant="caption" color={review.status === 'rejected' ? 'danger' : 'accent'}>
+            {review.status === 'pending'
+              ? 'Pending verification: this is what you sent. Listeners see the approved lyrics until the Blac team approves it.'
+              : `Your last change was not approved. ${review.reason ?? ''}`}
+          </Text>
+        ) : null}
         <LyricsFormatHelp />
 
         {loading ? (

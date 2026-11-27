@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { File } from 'expo-file-system';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Check, ImagePlus, Music } from 'lucide-react-native';
+import { useArtistStore } from '@/store/artistStore';
 import { ApiError, USES_BACKEND } from '@/api/blac';
 import { studioApi } from '@/api/blac/studio';
 import { queryClient } from '@/api/queryClient';
@@ -30,6 +31,7 @@ function NewReleaseScreen() {
   const [title, setTitle] = useState('');
   const [genre, setGenre] = useState('');
   const [description, setDescription] = useState('');
+  const verified = useArtistStore((s) => s.profile?.reviewRequired === true);
   /** When it should go live (epoch ms). `null` = the artist publishes by hand, which is the default. */
   const [goLiveAt, setGoLiveAt] = useState<number | null>(null);
   const [cover, setCover] = useState<File | null>(null);
@@ -91,6 +93,7 @@ function NewReleaseScreen() {
           <Text variant="display">New release</Text>
           <Text variant="body" color="textSecondary">
             It stays private as a draft until it goes live. You can edit it and listen to it first.
+            {verified ? ' The Blac team verifies it before listeners can see it.' : ''}
           </Text>
         </View>
 

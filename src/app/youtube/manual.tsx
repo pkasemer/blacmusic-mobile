@@ -71,7 +71,9 @@ export default function ManualSongsScreen() {
       setTransferInCache(transfer);
       haptics.success();
       router.replace({ pathname: '/youtube/transfer/[id]', params: { id: transfer.id } });
-      void offerPush("We'll tell you when your songs are published, even if the app is closed.");
+      void offerPush(
+        profile?.reviewRequired ? "We'll tell you when your songs are verified, even if the app is closed." : "We'll tell you when your songs are published, even if the app is closed.",
+      );
     } catch (e) {
       haptics.error();
       // An open transfer already exists: carry on with that one instead.

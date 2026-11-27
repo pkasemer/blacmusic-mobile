@@ -1,4 +1,5 @@
 import { shuffled } from '@/audio/music/queue';
+import { toReview, type WireReview } from '@/domain/review';
 import type { MoreItem, MorePage } from '@/domain/more';
 import type {
   Album,
@@ -64,6 +65,8 @@ interface WireArtist {
   following?: boolean;
   /** Only on your own profile, and only when it is suspended. */
   banned?: boolean;
+  /** Only on your own profile. */
+  reviewRequired?: boolean;
 }
 
 interface WireUploadSummary {
@@ -81,6 +84,7 @@ interface WireFeature {
 }
 
 interface WireRelease {
+  review?: WireReview | null;
   featuredArtists?: WireFeature[] | null;
   id: string;
   type: string;
@@ -159,6 +163,7 @@ const toArtist = (a: WireArtist): Artist => ({
   releaseCount: a.releaseCount,
   following: a.following,
   suspended: a.banned === true ? true : undefined,
+  reviewRequired: a.reviewRequired === true ? true : undefined,
 });
 
 const toPodcast = (s: WireShow): Podcast => ({
@@ -200,6 +205,7 @@ const toStudioItem = (r: WireRelease): StudioItem => ({
   visibility: r.visibility,
   publishAt: r.publishAt ? Date.parse(r.publishAt) : null,
   trackCount: r.trackCount ?? r.tracks?.length ?? 0,
+  review: toReview(r.review),
   ...releaseStatus(r),
 });
 

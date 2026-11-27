@@ -42,9 +42,12 @@ export const useTrackCredits = (trackId: string | undefined) =>
     retry: 1,
   });
 
-/** Saves the whole list of credits for a release (it replaces what was there). */
-export async function saveReleaseCredits(releaseId: string, credits: Credit[]): Promise<void> {
-  await apiRequest<unknown>(`/v1/releases/${encodeURIComponent(releaseId)}/credits`, {
+/**
+ * Saves the whole list of credits for a release (it replaces what was there). `pendingReview`: the change waits for
+ * the Blac team before listeners see it.
+ */
+export async function saveReleaseCredits(releaseId: string, credits: Credit[]): Promise<{ pendingReview: boolean }> {
+  const data = await apiRequest<{ review?: { status?: string } | null } | undefined>(`/v1/releases/${encodeURIComponent(releaseId)}/credits`, {
     method: 'PUT',
     body: {
       credits: credits.map((c) => ({
@@ -57,4 +60,6 @@ export async function saveReleaseCredits(releaseId: string, credits: Credit[]): 
     },
   });
   void queryClient.invalidateQueries({ queryKey: ['music', 'credits'] });
+  void queryClient.invalidateQueries({ queryKey: ['studio'] });
+  return { pendingReview: data?.review?.status === 'pending' };
 }

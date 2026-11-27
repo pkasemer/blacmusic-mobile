@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, TextInput, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChevronRight, Plus } from 'lucide-react-native';
@@ -10,6 +10,7 @@ import { PrimaryButton } from '@/components/FormField';
 import { Text } from '@/components/Text';
 import { OptionSheet } from '@/components/OptionSheet';
 import { CREDIT_ROLES, roleName, type Credit, type CreditRole } from '@/domain/credits';
+import { CHANGE_SENT } from '@/domain/review';
 import { radius, useTheme } from '@/theme';
 import { fontStyle } from '@/theme/fonts';
 import { haptics } from '@/utils/haptics';
@@ -80,8 +81,9 @@ function CreditsEditorScreen() {
     setBusy(true);
     setError(null);
     try {
-      await saveReleaseCredits(id, filled);
+      const { pendingReview } = await saveReleaseCredits(id, filled);
       haptics.success();
+      if (pendingReview) Alert.alert(CHANGE_SENT.title, CHANGE_SENT.message);
       router.back();
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Something went wrong. Try again.');

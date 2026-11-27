@@ -86,7 +86,8 @@ export const useStudioItems = (artistId: string | undefined) =>
       const list = query.state.data;
       // Files going up or being converted change quickly: look every few seconds until they are done.
       if (list?.some((i) => i.status === 'uploading' || i.status === 'processing')) return 4_000;
-      return list?.some((i) => i.visibility === 'scheduled') ? 30_000 : false;
+      if (list?.some((i) => i.visibility === 'scheduled')) return 30_000;
+      return list?.some((i) => i.review?.status === 'pending') ? 60_000 : false;
     },
   });
 
@@ -98,7 +99,8 @@ export const useRelease = (id: string) =>
     refetchInterval: (query) => {
       const data = query.state.data;
       if (data?.uploads.some((u) => u.status !== 'ready' && u.status !== 'failed')) return 3000;
-      return data?.visibility === 'scheduled' ? 30_000 : false;
+      if (data?.visibility === 'scheduled') return 30_000;
+      return data?.review?.status === 'pending' ? 60_000 : false;
     },
   });
 

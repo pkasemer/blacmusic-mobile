@@ -3,7 +3,7 @@ import { ActivityIndicator, Alert, Pressable, ScrollView, View } from 'react-nat
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { File } from 'expo-file-system';
-import { AlertCircle, CalendarClock, ChartNoAxesColumn, CheckCircle2, Circle, Globe, Lock, MessageSquareQuote, Pause, PencilLine, Play, Plus, RefreshCw, RotateCcw, Trash2, Users, X, type LucideIcon } from 'lucide-react-native';
+import { AlertCircle, CalendarClock, ChartNoAxesColumn, CheckCircle2, Circle, Globe, Hourglass, Lock, MessageSquareQuote, Pause, PencilLine, Play, Plus, RefreshCw, RotateCcw, Trash2, Users, X, type LucideIcon } from 'lucide-react-native';
 import { useRelease } from '@/api/blac/queries';
 import { studioApi, type PendingUpload } from '@/api/blac/studio';
 import { ReleaseStatsSheet } from '@/components/ReleaseStatsSheet';
@@ -22,6 +22,8 @@ import { useScheduleStore } from '@/store/scheduleStore';
 import { useUploadStore, type UploadJob } from '@/store/uploadStore';
 import { readable } from '@/uploads/fileSize';
 import { dismissUpload, retryUpload, uploadTracks } from '@/uploads/uploadManager';
+import { isBeingVerified, standingOf } from '@/domain/review';
+import { offerPush } from '@/notifications/push';
 import { useTheme } from '@/theme';
 import { haptics } from '@/utils/haptics';
 import { withStudioGuard } from '@/components/SuspendedStudio';
@@ -264,13 +266,54 @@ function ReleaseScreen() {
   const trackCount = data.tracks.length;
   const totalSec = data.tracks.reduce((sum, t) => sum + t.durationSec, 0);
   const scheduled = data.visibility === 'scheduled';
-  const draft = !live && !scheduled;
+  const review = data.review;
+  // A new release being verified is locked: it can only be withdrawn (or deleted).
+  const verifying = isBeingVerified(review);
+  const draft = !live && !scheduled && !verifying;
+  const needsReview = data.reviewRequired;
+  const refused = review?.status === 'rejected';
   const pendingJobs = jobs.filter((j) => j.state !== 'ready');
   // A draft takes more audio: any number of tracks for an album, one file for a single that has none yet.
   const nothingComing = (data.uploads ?? []).every((u) => u.status === 'failed' || u.status === 'ready') && activeJobs.length === 0;
   const canAddAudio = draft && (data.type === 'album' || (trackCount === 0 && nothingComing));
-  const statusColor = live ? colors.success : scheduled ? colors.accent : colors.textTertiary;
-  const statusLabel = live ? 'Live' : scheduled ? 'Scheduled' : 'Draft';
+  const standing = standingOf(data.visibility, review);
+  const statusColor =
+    standing.tone === 'live' ? colors.success : standing.tone === 'scheduled' || standing.tone === 'review' ? colors.accent : standing.tone === 'refused' ? colors.danger : colors.textTertiary;
+  const statusLabel = standing.label;
+
+  const send = () =>
+    run(async () => {
+      await studioApi.publish(id, goLiveAt ?? undefined);
+      setGoLiveAt(id, null);
+      // Say what really happened: sent to the team, or live.
+      if (needsReview && (await studioApi.getRelease(id)).review?.status === 'pending') {
+        Alert.alert('Sent for verification', "Only you can see it until the Blac team approves it. We'll email you and send a notification.", [
+          { text: 'OK', onPress: () => void offerPush("We'll tell you as soon as your release is verified.") },
+        ]);
+      }
+    }, needsReview ? "Couldn't send it" : goLiveAt !== null ? "Couldn't schedule" : "Couldn't publish");
+
+  const confirmWithdraw = () => {
+    haptics.warning();
+    Alert.alert(
+      verifying ? 'Withdraw from verification?' : 'Withdraw your changes?',
+      verifying ? 'It goes back to a draft you can edit. Send it again when you are ready.' : 'The changes waiting for verification are dropped. Listeners keep seeing the approved version.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Withdraw', style: 'destructive', onPress: () => run(() => studioApi.withdrawReview(id), "Couldn't withdraw it") },
+      ],
+    );
+  };
+
+  const takeBack = () => {
+    const hide = () => run(() => studioApi.unpublish(id), "Couldn't unpublish");
+    if (!needsReview) return void hide();
+    haptics.warning();
+    Alert.alert('Take back to draft?', 'It is hidden from listeners straight away. Publishing it again needs verification.', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Take back', style: 'destructive', onPress: () => void hide() },
+    ]);
+  };
 
   return (
     <ScrollView
@@ -300,10 +343,35 @@ function ReleaseScreen() {
 
       {/* ---- Publish ---- */}
       <View style={{ gap: 12 }}>
-        <SettingsGroup title="Publish">
+        <SettingsGroup
+          title="Publish"
+          footer={
+            verifying
+              ? `The Blac team is checking this release, and only you can see it until it's approved. It can't be changed while they do. We'll email you and send a notification.${review?.publishAt ? ` Once approved it goes live on ${new Date(review.publishAt).toLocaleString()}, or straight away if that has passed.` : ''}`
+              : draft && needsReview
+                ? refused
+                  ? `${review?.reason ?? 'The Blac team asked for changes.'} Fix it, then send it again.`
+                  : 'The Blac team verifies every release before listeners can see it.'
+                : undefined
+          }
+        >
           <SettingsRow
-            icon={{ Icon: live ? Globe : scheduled ? CalendarClock : Lock }}
-            title={live ? 'This release is live' : scheduled ? 'This release is scheduled' : canPublish ? 'Ready to publish' : 'Not ready yet'}
+            icon={{ Icon: live ? Globe : scheduled ? CalendarClock : verifying ? Hourglass : refused ? AlertCircle : Lock }}
+            title={
+              live
+                ? 'This release is live'
+                : scheduled
+                  ? 'This release is scheduled'
+                  : verifying
+                    ? 'Pending verification'
+                    : refused
+                      ? 'Changes needed'
+                      : canPublish
+                        ? needsReview
+                          ? 'Ready to send'
+                          : 'Ready to publish'
+                        : 'Not ready yet'
+            }
             subtitle={
               live
                 ? 'Everyone can find and play it.'
@@ -311,7 +379,9 @@ function ReleaseScreen() {
                   ? data.publishAt
                     ? `It goes live on ${new Date(data.publishAt).toLocaleString()}.`
                     : 'It will go live at the time you set.'
-                  : 'Only you can see a draft. Play the tracks below to check them first.'
+                  : verifying
+                    ? 'Waiting for the Blac team.'
+                    : 'Only you can see a draft. Play the tracks below to check them first.'
             }
           />
           {draft ? <CheckRow key="c1" done={trackCount > 0} label="At least one finished track" /> : null}
@@ -324,25 +394,39 @@ function ReleaseScreen() {
               <GoLiveChoice scheduledFor={goLiveAt} onChange={(at) => setGoLiveAt(id, at)} />
             </View>
           ) : null}
-          {!draft ? (
-            <SettingsRow key="back" title="Take back to draft" onPress={() => run(() => studioApi.unpublish(id), "Couldn't unpublish")} />
-          ) : null}
+          {verifying ? <SettingsRow key="withdraw" title="Withdraw from verification" onPress={confirmWithdraw} /> : null}
+          {!draft && !verifying ? <SettingsRow key="back" title="Take back to draft" onPress={takeBack} /> : null}
         </SettingsGroup>
         {draft ? (
           <View style={{ marginHorizontal: 16 }}>
             <PrimaryButton
-              label={goLiveAt !== null ? `Schedule for ${formatGoLive(new Date(goLiveAt))}` : 'Publish now'}
-              disabled={!canPublish}
-              onPress={() =>
-                run(async () => {
-                  await studioApi.publish(id, goLiveAt ?? undefined);
-                  setGoLiveAt(id, null);
-                }, goLiveAt !== null ? "Couldn't schedule" : "Couldn't publish")
+              label={
+                needsReview
+                  ? refused
+                    ? 'Send again for verification'
+                    : 'Submit for verification'
+                  : goLiveAt !== null
+                    ? `Schedule for ${formatGoLive(new Date(goLiveAt))}`
+                    : 'Publish now'
               }
+              disabled={!canPublish}
+              onPress={() => void send()}
             />
           </View>
         ) : null}
       </View>
+
+      {/* ---- Changes to a live or scheduled release that listeners do not see yet ---- */}
+      {review && (live || scheduled) ? (
+        <SettingsGroup title="Verification" footer={review.status === 'pending' ? "Listeners see the approved version until the Blac team approves your changes. We'll email you and send a notification." : 'Listeners still see the approved version. Make the change again to send it for verification.'}>
+          <SettingsRow
+            icon={{ Icon: review.status === 'pending' ? Hourglass : AlertCircle }}
+            title={review.status === 'pending' ? 'Changes pending verification' : 'Changes not approved'}
+            subtitle={review.status === 'pending' ? review.changes.join(' · ') || 'Waiting for the Blac team.' : (review.reason ?? 'The Blac team did not approve them.')}
+          />
+          {review.status === 'pending' ? <SettingsRow key="withdraw-changes" title="Withdraw changes" onPress={confirmWithdraw} /> : null}
+        </SettingsGroup>
+      ) : null}
 
       {/* ---- How it is doing (live releases): the numbers open in a sheet ---- */}
       {live ? (
@@ -375,7 +459,7 @@ function ReleaseScreen() {
               }}
             />
           ) : null}
-          {credits.data !== null ? (
+          {credits.data !== null && !verifying ? (
             <SettingsRow
               key="credits"
               icon={{ Icon: Users }}
@@ -479,7 +563,7 @@ function ReleaseScreen() {
                 </View>
               </View>
               {/* The track's tools, right under it */}
-              <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8, paddingLeft: 54 }}>
+              <View style={{ display: verifying ? 'none' : 'flex', flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8, paddingLeft: 54 }}>
                 <TrackAction label="Lyrics" Icon={MessageSquareQuote} onPress={() => router.push({ pathname: '/release/lyrics', params: { id: t.id, title: t.title, duration: String(Math.round(t.durationSec ?? 0)) } })} />
                 {draft ? <TrackAction label="Replace audio" Icon={RefreshCw} onPress={() => replaceAudio(t)} /> : null}
                 <TrackAction label="Delete" Icon={Trash2} destructive onPress={() => confirmDeleteTrack(t.id, t.title)} />

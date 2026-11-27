@@ -1,3 +1,4 @@
+import type { Review } from './review';
 /**
  * Blac's own data model (music, podcasts, artists). These are what the UI works with; the API layer
  * (`src/api/blac`) maps whatever the backend sends into these shapes, so the backend can change
@@ -22,6 +23,8 @@ export interface Artist {
   following?: boolean;
   /** The Blac team suspended this artist profile, so the Studio is off. Only ever told to its owner. */
   suspended?: boolean;
+  /** This artist's releases and changes are verified by the Blac team before listeners see them. Own profile only. */
+  reviewRequired?: boolean;
 }
 
 export type ReleaseType = 'single' | 'ep' | 'album' | 'podcast-episode';
@@ -191,6 +194,8 @@ export interface StudioItem {
   plays?: number;
   /** When a scheduled release goes live (epoch ms). */
   publishAt?: number | null;
+  /** Waiting for the Blac team's verification, or refused by it. */
+  review?: Review;
 }
 
 /** Artist storage allowance: 10 GB free, extra storage is bought on the website. */

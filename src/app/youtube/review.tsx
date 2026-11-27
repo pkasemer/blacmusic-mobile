@@ -3,6 +3,7 @@ import { ActivityIndicator, Pressable, ScrollView, Switch, TextInput, View } fro
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CircleCheck } from 'lucide-react-native';
+import { useArtistStore } from '@/store/artistStore';
 import { ApiError } from '@/api/blac';
 import { youtubeApi, type NewTransferItem, type YouTubeVideo } from '@/api/blac/youtube';
 import {
@@ -77,6 +78,7 @@ function SongRow({ video, selected, onToggle }: { video: YouTubeVideo; selected:
 
 /** Step 2: the songs found on the channel. Choose which to bring in, then a transfer is created. */
 export default function YouTubeReviewScreen() {
+  const verified = useArtistStore((state) => state.profile?.reviewRequired === true);
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -333,7 +335,7 @@ export default function YouTubeReviewScreen() {
         >
           <Checkbox checked={rights} />
           <Text variant="caption" color="textSecondary" style={{ flex: 1 }}>
-            I own this music, or I have the rights to share it on Blac, and I accept the upload terms. Finished songs are published when the transfer completes.
+            I own this music, or I have the rights to share it on Blac, and I accept the upload terms. {verified ? 'Finished songs are sent for verification, and go live once the Blac team approves them.' : 'Finished songs are published when the transfer completes.'}
           </Text>
         </Pressable>
         {error ? (
