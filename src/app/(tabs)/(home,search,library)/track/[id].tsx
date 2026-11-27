@@ -153,20 +153,17 @@ export default function TrackScreen() {
           items={[track, ...others]}
           source={{ type: 'song', id: track.id, name: track.title }}
           currentId={track.id}
-          tools={
-            <>
-              <FavouriteButton itemId={track.id} variant="pill" />
-              <DownloadAllButton tracks={[track]} what="song" />
-              {/* An unpublished song (an artist's own preview) cannot be shared, queued or added to a playlist. */}
-              {track.preview ? null : (
-                <>
-                  <ShareLinkButton label={`Share ${track.title}`} message={`Listen to "${track.title}" by ${artistLine(track)} on Blac`} path={`/track/${track.id}`} />
-                  <ActionButton label="Queue" hint="Add to queue" icon={<ListEnd size={18} color={button.ink} />} onPress={() => addToQueue(track)} />
-                  <ActionButton label="Playlist" hint="Add to playlist" icon={<ListPlus size={18} color={button.ink} />} onPress={() => setAdding(true)} />
-                </>
-              )}
-            </>
-          }
+          // Like sits beside Play; the rest are in More.
+          actions={[
+            <FavouriteButton key="like" itemId={track.id} variant="pill" />,
+            <DownloadAllButton key="download" tracks={[track]} what="song" />,
+            // An unpublished song (an artist's own preview) cannot be shared, queued or added to a playlist.
+            !track.preview && (
+              <ShareLinkButton key="share" label={`Share ${track.title}`} message={`Listen to "${track.title}" by ${artistLine(track)} on Blac`} path={`/track/${track.id}`} />
+            ),
+            !track.preview && <ActionButton key="queue" label="Add to queue" icon={<ListEnd size={18} color={button.ink} />} onPress={() => addToQueue(track)} />,
+            !track.preview && <ActionButton key="playlist" label="Add to playlist" icon={<ListPlus size={18} color={button.ink} />} onPress={() => setAdding(true)} />,
+          ]}
         />
 
         <View style={{ gap: 12, paddingHorizontal: 20 }}>

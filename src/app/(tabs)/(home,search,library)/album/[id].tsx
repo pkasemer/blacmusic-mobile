@@ -101,16 +101,15 @@ export default function AlbumScreen() {
         <DetailActions
           items={tracks}
           source={{ type: 'album', id: album.id, name: album.title }}
-          tools={
-            <>
-              <DownloadAllButton tracks={tracks} what={album.type === 'single' ? 'single' : 'album'} />
-              <ShareLinkButton
-                label={`Share ${album.title}`}
-                message={`Listen to the ${album.type === 'single' ? 'single' : 'album'} "${album.title}" by ${releaseLine(album)} on Blac`}
-                path={`/album/${album.id}`}
-              />
-            </>
-          }
+          actions={[
+            <DownloadAllButton key="download" tracks={tracks} what={album.type === 'single' ? 'single' : 'album'} />,
+            <ShareLinkButton
+              key="share"
+              label={`Share ${album.title}`}
+              message={`Listen to the ${album.type === 'single' ? 'single' : 'album'} "${album.title}" by ${releaseLine(album)} on Blac`}
+              path={`/album/${album.id}`}
+            />,
+          ]}
         />
 
         <View>

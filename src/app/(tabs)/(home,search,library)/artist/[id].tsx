@@ -148,13 +148,11 @@ export default function ArtistScreen() {
         <DetailActions
           items={tracks}
           source={{ type: 'artist', id: data.id, name: data.name }}
-          tools={
-            <>
-              {data.id !== ownArtistId ? <FollowButton artist={data} /> : null}
-              {USES_BACKEND && data.id !== ownArtistId ? <FavouriteArtistButton key={data.id} artist={data} /> : null}
-              <ShareLinkButton label={`Share ${data.name}`} message={`Listen to ${data.name} on Blac`} path={`/artist/${data.id}`} />
-            </>
-          }
+          actions={[
+            data.id !== ownArtistId && <FollowButton key="follow" artist={data} />,
+            USES_BACKEND && data.id !== ownArtistId && <FavouriteArtistButton key={`favourite-${data.id}`} artist={data} />,
+            <ShareLinkButton key="share" label={`Share ${data.name}`} message={`Listen to ${data.name} on Blac`} path={`/artist/${data.id}`} />,
+          ]}
         />
 
         {tracks.length > 0 ? (

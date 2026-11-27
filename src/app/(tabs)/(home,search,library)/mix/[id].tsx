@@ -85,7 +85,7 @@ export default function MixScreen() {
           <HeroMeta>{[reference.genre, `${tracks.length} ${tracks.length === 1 ? 'song' : 'songs'}`, length].filter(Boolean).join(' · ')}</HeroMeta>
         </DetailHero>
 
-        <DetailActions items={tracks} source={source} tools={<DownloadAllButton tracks={tracks} what="mix" />} />
+        <DetailActions items={tracks} source={source} actions={[<DownloadAllButton key="download" tracks={tracks} what="mix" />]} />
 
         <View>
           {tracks.map((track, i) => (

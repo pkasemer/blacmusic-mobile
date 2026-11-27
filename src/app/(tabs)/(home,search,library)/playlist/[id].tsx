@@ -117,27 +117,22 @@ export default function PlaylistScreen() {
         <DetailActions
           items={tracks}
           source={{ type: 'playlist', id: playlist.id, name: playlist.name }}
-          tools={
-            <>
-              <DownloadAllButton tracks={tracks} what="playlist" />
-              <ShareLinkButton
-                label={`Share ${playlist.name}`}
-                message={`Listen to the playlist "${playlist.name}" on Blac`}
-                path={`/playlist/${playlist.id}`}
+          actions={[
+            <DownloadAllButton key="download" tracks={tracks} what="playlist" />,
+            <ShareLinkButton key="share" label={`Share ${playlist.name}`} message={`Listen to the playlist "${playlist.name}" on Blac`} path={`/playlist/${playlist.id}`} />,
+            mine && (
+              <ActionButton
+                key="edit"
+                label="Edit playlist"
+                hint="Edit this playlist"
+                icon={<Pencil size={17} color={button.ink} />}
+                onPress={() => {
+                  haptics.select();
+                  setEditing(true);
+                }}
               />
-              {mine ? (
-                <ActionButton
-                  label="Edit"
-                  hint="Edit this playlist"
-                  icon={<Pencil size={17} color={button.ink} />}
-                  onPress={() => {
-                    haptics.select();
-                    setEditing(true);
-                  }}
-                />
-              ) : null}
-            </>
-          }
+            ),
+          ]}
         />
 
         {tracks.length === 0 ? (

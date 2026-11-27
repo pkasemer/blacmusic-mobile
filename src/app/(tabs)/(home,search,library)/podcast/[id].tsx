@@ -46,13 +46,14 @@ export default function PodcastScreen() {
           items={episodes.data ?? []}
           source={{ type: 'podcast', id, name: podcast?.title ?? 'Podcast' }}
           shuffle={false}
-          tools={
+          actions={[
             <ShareLinkButton
+              key="share"
               label={`Share ${podcast?.title ?? 'this podcast'}`}
               message={`Listen to the podcast "${podcast?.title ?? 'Podcast'}" on Blac`}
               path={`/podcast/${id}`}
-            />
-          }
+            />,
+          ]}
         />
         </View>
       }
