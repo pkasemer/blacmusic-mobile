@@ -11,6 +11,7 @@ import { haptics } from '@/utils/haptics';
 import { loadedUpTo } from '../../../modules/blac-audio-buffer';
 import { cancelPreload, clearPreloads, fileIsThere, isPreloadFile, preloadedUri, startPreload } from './preload';
 import { fetchMix, rememberMix } from './mixData';
+import { emitPlayerEvent } from './playerEvents';
 import type { PlaybackSource } from './source';
 import {
   jumpKeepingQueued,
@@ -74,6 +75,8 @@ let additions: Promise<void> = Promise.resolve();
 let pausedHere = false;
 /** The last song of the queue has finished. */
 let queueEnded = false;
+/** A queue is being put into the native player, which may still be showing the one before. */
+let switching = false;
 /** What each entry was given to the native player as: a stream link, or a file on the phone. */
 const nativeUri = new WeakMap<Playable, string>();
 
@@ -146,6 +149,16 @@ function metadataFor(item: Playable) {
 
 function activateLockScreen(item: Playable) {
   playlist?.setActiveForLockScreen(true, metadataFor(item), { showNextTrack: true, showPreviousTrack: true });
+}
+
+/**
+ * Where the native player is in the current song, or `null` while it is not showing that song: another queue is still
+ * loading, or it has moved on and the app has not caught up.
+ */
+export function playerPosition(): { positionSec: number; playing: boolean } | null {
+  const { active, index } = useMusicStore.getState();
+  if (!active || !playlist || switching || playlist.currentIndex !== index || playlist.trackCount <= index) return null;
+  return { positionSec: playlist.currentTime, playing: playlist.playing };
 }
 
 /** The player has moved on to the song at `index`. */
@@ -294,6 +307,7 @@ export function getPlaylist(): AudioPlaylist {
     // Events arrive a moment late: one left over from a queue that has since been replaced is ignored.
     if (created.trackCount !== useMusicStore.getState().queue.length || created.currentIndex !== currentIndex) return;
     arrivedAt(currentIndex);
+    emitPlayerEvent({ type: 'status' });
   });
 
   created.addListener('playlistStatusUpdate', (status) => {
@@ -310,6 +324,9 @@ export function getPlaylist(): AudioPlaylist {
     if (state.playing !== status.playing || state.buffering !== buffering) {
       state.set({ playing: status.playing, buffering });
     }
+    emitPlayerEvent({ type: 'status' });
+    // Told once, and only for the end of the whole queue.
+    if (status.didJustFinish && state.index >= state.queue.length - 1) emitPlayerEvent({ type: 'ended' });
     if (status.playing) preloadNext();
     if (status.playing || status.didJustFinish) void keepGoing();
   });
@@ -324,6 +341,7 @@ export function getPlaylist(): AudioPlaylist {
  */
 async function startQueue(items: Playable[], startIndex: number, repeat: RepeatMode, positionSec = 0, autoplay = true) {
   const seq = ++loadSeq;
+  switching = true;
   pausedHere = !autoplay;
   queueEnded = false;
   const player = getPlaylist();
@@ -355,6 +373,8 @@ async function startQueue(items: Playable[], startIndex: number, repeat: RepeatM
   if (index > 0) player.skipTo(index);
   // The saved position belongs to the song that was asked for.
   if (positionSec > 0 && startItem === items[startIndex]) await player.seekTo(positionSec);
+  if (seq !== loadSeq) return;
+  switching = false;
   activateLockScreen(startItem);
   if (autoplay) player.play();
   else useMusicStore.getState().set({ playing: false, buffering: false });
@@ -374,6 +394,8 @@ function load(...args: Parameters<typeof startQueue>) {
  */
 export function playQueue(items: Playable[], startIndex = 0, options: { shuffle?: boolean; source?: PlaybackSource; positionSec?: number } = {}) {
   if (items.length === 0) return;
+  emitPlayerEvent({ type: 'leaving', reason: 'replaced' });
+  switching = true;
   const state = useMusicStore.getState();
   const shuffle = options.shuffle ?? state.shuffle;
   haptics.medium();
@@ -529,6 +551,7 @@ export function nextTrack() {
   haptics.light();
   const atEnd = state.index >= state.queue.length - 1;
   if (atEnd && state.repeat !== 'all') return;
+  emitPlayerEvent({ type: 'leaving', reason: 'next' });
   getPlaylist().next();
 }
 
@@ -542,6 +565,7 @@ export function previousTrack() {
     void player.seekTo(0);
     return;
   }
+  emitPlayerEvent({ type: 'leaving', reason: 'previous' });
   player.previous();
 }
 
@@ -562,6 +586,7 @@ export function playQueueIndex(index: number) {
   catchUp();
   const state = useMusicStore.getState();
   if (!state.active || index < 0 || index >= state.queue.length) return;
+  if (index !== state.index) emitPlayerEvent({ type: 'leaving', reason: index < state.index ? 'previous' : 'jump' });
   const target = state.queue[index];
   const moving = index === state.index || state.waiting.has(target) ? [] : queuedAhead(state.queue, state.index, state.waiting);
   const player = getPlaylist();
@@ -749,7 +774,8 @@ export function dropFromPlayer(ids: ReadonlySet<string>): 'stopped' | 'removed' 
   if (!state.active || !state.queue.some((item) => ids.has(item.id))) return null;
   const current = state.queue[state.index];
   if (!current || ids.has(current.id)) {
-    stopMusic();
+    emitPlayerEvent({ type: 'leaving', reason: 'removed' });
+    stopMusic({ told: true });
     return 'stopped';
   }
   if (state.queue.slice(0, state.index).some((item) => ids.has(item.id))) {
@@ -769,8 +795,10 @@ export function dropFromPlayer(ids: ReadonlySet<string>): 'stopped' | 'removed' 
   return 'removed';
 }
 
-/** Stops playback, clears the queue and the lock screen. */
-export function stopMusic() {
+/** Stops playback, clears the queue and the lock screen. `told` when the reason has been given already. */
+export function stopMusic({ told = false }: { told?: boolean } = {}) {
+  if (!told) emitPlayerEvent({ type: 'leaving', reason: 'stopped' });
+  switching = false;
   loadSeq++;
   upcomingSeq++;
   session++;

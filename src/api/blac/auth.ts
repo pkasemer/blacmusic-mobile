@@ -90,13 +90,18 @@ export const authApi = {
 
   /**
    * Ends a session on the server after the app has already forgotten it (best effort, in the background). With
-   * `pushToken` the backend also stops sending notifications to this phone; that call needs a working access token,
-   * so an expired one is renewed first. Nothing here touches the sign-in state on this device.
+   * `pushToken` the backend also stops sending notifications to this phone. `deliver` sends what the app still had to
+   * tell the server. Both need a working access token, so an expired one is renewed first. Nothing here touches the
+   * sign-in state on this device.
    */
-  async endSession(session: { accessToken: string | null; accessExpiresAt: number | null; refreshToken: string }, pushToken: () => Promise<string | null>): Promise<void> {
+  async endSession(
+    session: { accessToken: string | null; accessExpiresAt: number | null; refreshToken: string },
+    pushToken: () => Promise<string | null>,
+    deliver?: (accessToken: string) => Promise<void>,
+  ): Promise<void> {
     let { accessToken, refreshToken } = session;
     const token = await pushToken().catch(() => null);
-    if (token) {
+    if (token || deliver) {
       try {
         if (!accessToken || !session.accessExpiresAt || session.accessExpiresAt - Date.now() < 30_000) {
           const renewed = await apiRequest<AuthResponse>('/v1/auth/refresh', { method: 'POST', auth: false, body: { refreshToken } });
@@ -104,7 +109,8 @@ export const authApi = {
           // Refresh tokens work once: the new one is the one to end below.
           refreshToken = renewed.refreshToken;
         }
-        await apiRequest<void>('/v1/me/push-tokens', { method: 'DELETE', auth: false, headers: { Authorization: `Bearer ${accessToken}` }, body: { token } });
+        if (token) await apiRequest<void>('/v1/me/push-tokens', { method: 'DELETE', auth: false, headers: { Authorization: `Bearer ${accessToken}` }, body: { token } });
+        if (deliver && accessToken) await deliver(accessToken);
       } catch {
         // Offline or already gone: still try to end the session.
       }

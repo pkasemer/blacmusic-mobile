@@ -1,10 +1,13 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { toggled, type LikeState } from '@/likes/likesRules';
 import { persistStorage } from './storage';
 
-interface FavouritesState {
-  /** Song and episode ids, most recently added first. Saved on the device. */
-  ids: string[];
+/**
+ * Liked songs and episodes. Saved on the device; liked songs are also kept by the server (see `likes/likesSync`).
+ * Saved before the server kept them, only `ids` is there: the rest starts empty and those likes are sent up.
+ */
+interface FavouritesState extends LikeState {
   /** Adds the item if it isn't a favourite, removes it if it is. Returns `true` when it is now a favourite. */
   toggle: (id: string) => boolean;
 }
@@ -13,10 +16,13 @@ export const useFavouritesStore = create<FavouritesState>()(
   persist(
     (set, get) => ({
       ids: [],
+      pending: {},
+      onServer: [],
+      localOnly: [],
       toggle: (id) => {
-        const isFavourite = get().ids.includes(id);
-        set((state) => ({ ids: isFavourite ? state.ids.filter((x) => x !== id) : [id, ...state.ids] }));
-        return !isFavourite;
+        const { liked, ...next } = toggled(get(), id);
+        set(next);
+        return liked;
       },
     }),
     { name: 'blac-favourites', storage: persistStorage },

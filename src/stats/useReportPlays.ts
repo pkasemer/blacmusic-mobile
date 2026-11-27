@@ -37,11 +37,13 @@ export function useReportPlays(active: boolean) {
   const item = useCurrentItem();
   const playing = useMusicStore((s) => s.playing);
   const source = useMusicStore((s) => s.source);
+  // A song autoplay added is counted as autoplay's, not as the list the queue started from.
+  const autoplayed = useMusicStore((s) => !!item && s.autoplay.has(item));
   const heard = useRef({ id: '', seconds: 0, sent: false });
 
   const trackId = item && item.kind === 'track' && !item.preview ? item.id : null;
   const durationSec = item?.durationSec ?? 0;
-  const sourceType = playSource(source?.type);
+  const sourceType = autoplayed ? 'autoplay' : playSource(source?.type);
 
   // A different song starts a new count.
   useEffect(() => {

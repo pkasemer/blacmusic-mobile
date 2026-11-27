@@ -18,6 +18,7 @@ import { Toast } from '@/components/Toast';
 import { useNotifications } from '@/notifications/useNotifications';
 import { useReportPlays } from '@/stats/useReportPlays';
 import { useListeningSignals } from '@/stats/useListeningSignals';
+import { useLikesSync } from '@/likes/likesSync';
 import { useYourSound } from '@/onboarding/yourSound';
 import { useSaveProgress } from '@/audio/music/useSaveProgress';
 import { useRemoveGone } from '@/offline/removeGone';
@@ -92,6 +93,7 @@ function AppShell() {
   useNotifications(USES_BACKEND && hasSession && !needsCode);
   useReportPlays(USES_BACKEND && hasSession && !needsCode);
   useListeningSignals(USES_BACKEND && hasSession && !needsCode);
+  useLikesSync(USES_BACKEND && hasSession && !needsCode);
   useSaveProgress();
   // Take off the phone what is no longer on Blac (a banned artist's downloads, recent searches, queued songs).
   useRemoveGone(USES_BACKEND && hasSession && !needsCode);

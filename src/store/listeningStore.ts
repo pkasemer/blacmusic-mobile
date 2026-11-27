@@ -18,6 +18,13 @@ export interface ListeningEvent {
   outcome?: 'completed' | 'skipped' | 'stopped';
   replay?: boolean;
   source?: string;
+  /** Autoplay chose the song, from `autoplaySeedId`. Sent as a flag so an older server still keeps the listen. */
+  autoplay?: boolean;
+  autoplaySeedId?: string;
+  endReason?: string;
+  positionSec?: number;
+  /** How the app measured: absent for the first way, whose skips include false ones. */
+  capture?: number;
 }
 
 /** What the phone remembers about a song, to keep "Your sound" close to what is really enjoyed. */
@@ -36,7 +43,10 @@ const MAX_TASTES = 300;
 
 interface ListeningState {
   pending: ListeningEvent[];
+  /** The listen under way, as it should be sent if the app goes away before it ends. */
+  draft: ListeningEvent | null;
   tastes: Record<string, Taste>;
+  setDraft: (draft: ListeningEvent | null) => void;
   add: (event: ListeningEvent) => void;
   sent: (ids: string[]) => void;
   taste: (trackId: string, change: (taste: Taste) => Taste) => void;
@@ -47,8 +57,15 @@ export const useListeningStore = create<ListeningState>()(
   persist(
     (set) => ({
       pending: [],
+      draft: null,
       tastes: {},
-      add: (event) => set((s) => ({ pending: [...s.pending, event].slice(-MAX_PENDING) })),
+      setDraft: (draft) => set({ draft }),
+      // One event per id; recording a listen puts its draft away.
+      add: (event) =>
+        set((s) => ({
+          pending: [...s.pending.filter((e) => e.id !== event.id), event].slice(-MAX_PENDING),
+          draft: s.draft?.id === event.id ? null : s.draft,
+        })),
       sent: (ids) => {
         const gone = new Set(ids);
         set((s) => ({ pending: s.pending.filter((e) => !gone.has(e.id)) }));
@@ -61,7 +78,7 @@ export const useListeningStore = create<ListeningState>()(
           if (keys.length > MAX_TASTES) keys.sort((a, b) => tastes[a].at - tastes[b].at).slice(0, keys.length - MAX_TASTES).forEach((k) => delete tastes[k]);
           return { tastes };
         }),
-      reset: () => set({ pending: [], tastes: {} }),
+      reset: () => set({ pending: [], draft: null, tastes: {} }),
     }),
     { name: 'blac-listening-signals-v1', storage: persistStorage },
   ),

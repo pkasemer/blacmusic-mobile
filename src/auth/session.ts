@@ -3,11 +3,14 @@ import { authApi, blacApi, USES_BACKEND } from '@/api/blac';
 import { queryClient } from '@/api/queryClient';
 import { stopMusic } from '@/audio/music/musicEngine';
 import { removeAllDownloads } from '@/offline/downloads';
-import { tracker } from '@/stats/signals';
+import { sendLikesWithToken } from '@/likes/likesSync';
+import { toSend } from '@/likes/likesRules';
+import { finishForSignOut, sendWithToken } from '@/stats/signals';
 import { useArtistStore } from '@/store/artistStore';
+import { useFavouritesStore } from '@/store/favouritesStore';
 import { useListeningStore } from '@/store/listeningStore';
 import { useOnboardingStore } from '@/store/onboardingStore';
-import { bringBackPersonalData, putAwayPersonalData } from '@/auth/personalData';
+import { bringBackPersonalData, putAwayPersonalData, removeFromAside } from '@/auth/personalData';
 import { tokenToRemove } from '@/notifications/push';
 import { useAuthStore } from '@/store/authStore';
 
@@ -29,14 +32,16 @@ export async function syncAccount() {
  * for that account) likes, history, recent searches and where they stopped listening.
  */
 function forgetAccount(userId: string | undefined) {
+  // The song under way is recorded while it is still known whose it is.
+  finishForSignOut();
   // Stop first, so nothing writes a position or a history entry after they have been put away.
   stopMusic();
+  // Takes the listening events not yet sent with it: they are this person's, and are sent when they can be.
   putAwayPersonalData(userId);
   removeAllDownloads();
   useArtistStore.getState().clear();
   useOnboardingStore.getState().reset();
   // What this person listened to must not be sent as the next one's.
-  tracker.finish(Date.now());
   useListeningStore.getState().reset();
   queryClient.clear();
 }
@@ -47,9 +52,18 @@ function forgetAccount(userId: string | undefined) {
  * `useSessionSync` clears the rest from this device.
  */
 export function signOut() {
-  const { accessToken, accessExpiresAt, refreshToken, clear } = useAuthStore.getState();
+  const { accessToken, accessExpiresAt, refreshToken, user, clear } = useAuthStore.getState();
+  // The last listen is recorded, and what the server has not had is noted, before the app forgets the account.
+  const events = refreshToken ? finishForSignOut() : [];
+  const likes = refreshToken ? toSend(useFavouritesStore.getState()) : [];
   clear();
-  if (refreshToken) void authApi.endSession({ accessToken, accessExpiresAt, refreshToken }, tokenToRemove);
+  if (!refreshToken) return;
+  void authApi.endSession({ accessToken, accessExpiresAt, refreshToken }, tokenToRemove, async (token) => {
+    const sentEvents = await sendWithToken(events, token);
+    const sentLikes = await sendLikesWithToken(likes, token);
+    // What did not get through stays set aside until this account signs in here again.
+    if (user) await removeFromAside(user.id, sentEvents, sentLikes);
+  });
 }
 
 /**
