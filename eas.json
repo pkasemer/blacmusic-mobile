@@ -9,7 +9,8 @@
       "distribution": "internal",
       "env": {
         "APP_VARIANT": "development",
-        "EXPO_PUBLIC_BLAC_API_URL": "https://blacmusic.pkasemer.com"
+        "EXPO_PUBLIC_BLAC_API_URL": "https://blacmusic.pkasemer.com",
+        "EXPO_PUBLIC_REQUIRE_EMAIL_CODE": "true"
       },
       "android": {
         "buildType": "apk"
