@@ -1,10 +1,11 @@
-import { ActivityIndicator, Alert, Share } from 'react-native';
+import { ActivityIndicator, Alert } from 'react-native';
 import * as Linking from 'expo-linking';
 import { ArrowDownCircle, CheckCircle2, Download, Share2 } from 'lucide-react-native';
 import type { Track } from '@/domain/types';
 import { cancelDownload, downloadBlockReason, downloadItem } from '@/offline/downloads';
 import { useDownloadStore } from '@/store/downloadStore';
 import { haptics } from '@/utils/haptics';
+import { shareLink } from '@/utils/share';
 import { ActionButton, useSecondaryButton } from './DetailActions';
 
 /**
@@ -13,14 +14,9 @@ import { ActionButton, useSecondaryButton } from './DetailActions';
  */
 export function ShareLinkButton({ label, message, path }: { label: string; message: string; path: string }) {
   const button = useSecondaryButton();
-  const share = async () => {
+  const share = () => {
     haptics.select();
-    const url = Linking.createURL(path);
-    try {
-      await Share.share({ message: `${message}\n${url}`, url });
-    } catch {
-      // The share sheet failing to open is not worth an error.
-    }
+    void shareLink(message, Linking.createURL(path));
   };
   return (
     <ActionButton label="Share" hint={label} onPress={share} icon={<Share2 size={17} color={button.ink} />} />

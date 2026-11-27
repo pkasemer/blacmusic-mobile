@@ -1,5 +1,5 @@
 import { useRef, useState, type ReactElement, type ReactNode } from 'react';
-import { ActivityIndicator, Modal, Pressable, Share, View } from 'react-native';
+import { ActivityIndicator, Modal, Pressable, View } from 'react-native';
 import * as Linking from 'expo-linking';
 import { useRouter } from 'expo-router';
 import Animated, { FadeIn, FadeOut, SlideInDown, SlideOutDown } from 'react-native-reanimated';
@@ -16,6 +16,7 @@ import { useFavouritesStore, useIsFavourite } from '@/store/favouritesStore';
 import { useMusicStore } from '@/store/musicStore';
 import { radius, useTheme } from '@/theme';
 import { haptics } from '@/utils/haptics';
+import { shareLink } from '@/utils/share';
 import { Artwork } from './Artwork';
 import { AddToPlaylistSheet } from './PlaylistSheets';
 import { ArtistName } from './ArtistName';
@@ -149,7 +150,7 @@ function TrackActionSheet({
     haptics.select();
     const url = Linking.createURL(`/track/${track.id}`);
     dismiss(() => {
-      Share.share({ message: `Listen to "${track.title}" by ${track.artistName} on Blac\n${url}`, url }).catch(() => {});
+      void shareLink(`Listen to "${track.title}" by ${track.artistName} on Blac`, url);
     });
   };
 
