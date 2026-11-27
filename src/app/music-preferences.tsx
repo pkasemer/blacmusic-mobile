@@ -49,7 +49,7 @@ export default function MusicPreferencesScreen() {
 
   return (
     <ScrollView style={{ backgroundColor: g.page }} contentInsetAdjustmentBehavior="automatic" contentContainerStyle={{ paddingTop: 16, paddingBottom: 40, gap: 28 }}>
-      <SettingsGroup footer="Your choices help Blac decide what to suggest and what to add to Your sound. Changing them does not remove songs you added.">
+      <SettingsGroup footer="Genres and favourite artists help choose the new songs in Your sound. Changes show gradually, from its next daily update, and songs you added stay. Languages and regions are saved, but don't change your music yet.">
         <SettingsRow icon={{ Icon: Languages }} title="Languages" subtitle={languages.join(' · ') || 'None chosen'} chevron onPress={() => open('languages')} />
         <SettingsRow
           icon={{ Icon: MapPinned }}
