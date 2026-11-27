@@ -11,6 +11,7 @@ import { startMix } from '@/audio/music/startMix';
 import type { Track } from '@/domain/types';
 import { cancelDownload, downloadBlockReason, downloadItem } from '@/offline/downloads';
 import { useDownload } from '@/store/downloadStore';
+import { recordLike } from '@/stats/signals';
 import { useFavouritesStore, useIsFavourite } from '@/store/favouritesStore';
 import { useMusicStore } from '@/store/musicStore';
 import { radius, useTheme } from '@/theme';
@@ -118,6 +119,7 @@ function TrackActionSheet({
 
   const onFavourite = () => {
     const added = toggleFavourite(track.id);
+    recordLike(track.id, added);
     if (added) haptics.success();
     else haptics.light();
     dismiss();

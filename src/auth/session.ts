@@ -3,7 +3,9 @@ import { authApi, blacApi, USES_BACKEND } from '@/api/blac';
 import { queryClient } from '@/api/queryClient';
 import { stopMusic } from '@/audio/music/musicEngine';
 import { removeAllDownloads } from '@/offline/downloads';
+import { tracker } from '@/stats/signals';
 import { useArtistStore } from '@/store/artistStore';
+import { useListeningStore } from '@/store/listeningStore';
 import { useOnboardingStore } from '@/store/onboardingStore';
 import { bringBackPersonalData, putAwayPersonalData } from '@/auth/personalData';
 import { tokenToRemove } from '@/notifications/push';
@@ -33,6 +35,9 @@ function forgetAccount(userId: string | undefined) {
   removeAllDownloads();
   useArtistStore.getState().clear();
   useOnboardingStore.getState().reset();
+  // What this person listened to must not be sent as the next one's.
+  tracker.finish(Date.now());
+  useListeningStore.getState().reset();
   queryClient.clear();
 }
 

@@ -1,7 +1,10 @@
+import { useCallback } from 'react';
+import { pinFirst } from '@/onboarding/yourSoundRules';
+import { useYourSoundStore } from '@/store/yourSoundStore';
 import { keepPreviousData, useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { moreItemId, type MoreList } from '@/domain/more';
 import { blacApi } from './index';
-import type { Album } from '@/domain/types';
+import type { Album, Playlist } from '@/domain/types';
 import { FALLBACK_GENRES } from '@/domain/genres';
 import { studioApi } from './studio';
 
@@ -178,8 +181,12 @@ export const useNewReleaseAlbums = () =>
 export const usePlaylists = () =>
   useQuery({ queryKey: musicKeys.playlists, queryFn: () => blacApi.getPlaylists(), staleTime: FIVE_MINUTES });
 
-export const useMyPlaylists = () =>
-  useQuery({ queryKey: musicKeys.myPlaylists, queryFn: () => blacApi.getMyPlaylists(), staleTime: FIVE_MINUTES });
+/** Your playlists, with "Your sound" always first. */
+export const useMyPlaylists = () => {
+  const pinned = useYourSoundStore((s) => s.playlistId);
+  const select = useCallback((playlists: Playlist[]) => pinFirst(playlists, pinned), [pinned]);
+  return useQuery({ queryKey: musicKeys.myPlaylists, queryFn: () => blacApi.getMyPlaylists(), staleTime: FIVE_MINUTES, select });
+};
 
 export const usePlaylist = (id: string) =>
   useQuery({ queryKey: musicKeys.playlist(id), queryFn: () => blacApi.getPlaylist(id), enabled: !!id, staleTime: 60_000 });

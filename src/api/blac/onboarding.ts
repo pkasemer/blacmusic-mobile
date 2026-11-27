@@ -58,11 +58,11 @@ export const onboardingApi = {
     }
   },
 
-  /** What the server has for this account, or `null` when it cannot say. */
-  async getSaved(): Promise<{ completed: boolean } | null> {
+  /** What the server has for this account (the answers, and whether it is finished), or `null` when it cannot say. */
+  async getSaved(): Promise<(Partial<OnboardingPreferences> & { completed: boolean }) | null> {
     if (!USES_BACKEND) return null;
     try {
-      return await apiRequest<{ completed: boolean }>('/v1/onboarding/preferences');
+      return await apiRequest<Partial<OnboardingPreferences> & { completed: boolean }>('/v1/onboarding/preferences');
     } catch (error) {
       if (notThere(error)) return null;
       throw error;

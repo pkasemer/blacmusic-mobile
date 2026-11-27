@@ -10,7 +10,7 @@ import { HomeHero, TILE_SIZE, type HomeFeatured, type HomeTile } from '@/compone
 import { AlbumShelf, ArtistShelf, PlaylistShelf, PodcastShelf } from '@/components/MusicShelf';
 import { PlaylistCover } from '@/components/PlaylistCover';
 import { ScreenState } from '@/components/ScreenState';
-import { StarterPlaylist } from '@/components/StarterPlaylist';
+import { YourSoundSheet } from '@/components/YourSoundSheet';
 import { HomeSkeleton } from '@/components/Skeleton';
 import { TabScreen } from '@/components/TabScreen';
 import { Text } from '@/components/Text';
@@ -20,6 +20,7 @@ import { useLibraryStore, type LibrarySection } from '@/store/libraryStore';
 import { useMusicStore } from '@/store/musicStore';
 import { useOnboardingStore } from '@/store/onboardingStore';
 import { useResumeStore } from '@/store/resumeStore';
+import { useYourSoundStore } from '@/store/yourSoundStore';
 import { formatTime } from '@/audio/music/queue';
 import { useTheme } from '@/theme';
 import { topInset } from '@/utils/platform';
@@ -71,8 +72,9 @@ export default function HomeScreen() {
     return (playlists.data ?? []).filter((p) => !mineIds.has(p.id));
   }, [playlists.data, yourPlaylists]);
 
-  // Songs from the onboarding picks, for a newcomer's first listen.
+  // Songs from the onboarding picks, for a newcomer's first listen, saved to their account as "Your sound".
   const starter = useOnboardingStore((s) => s.starter);
+  const yourSoundId = useYourSoundStore((s) => s.playlistId);
 
   // The big card: carry on with the last song, or (for a newcomer) their first mix or the newest release.
   const featured = useMemo<HomeFeatured | undefined>(() => {
@@ -98,12 +100,12 @@ export default function HomeScreen() {
     if (first) {
       const play = () => playQueue(starter, 0, { shuffle: false });
       return {
-        label: 'From your picks',
-        title: 'Your first playlist',
+        label: 'Made for you',
+        title: 'Your sound',
         subtitle: `${starter.length} ${starter.length === 1 ? 'song' : 'songs'} from the artists and genres you chose`,
         art: <Artwork id={first.id} logoUrl={first.artworkUrl} size={112} />,
         tint: { id: first.id, logoUrl: first.artworkUrl },
-        onPress: play,
+        onPress: yourSoundId ? () => router.push({ pathname: '/playlist/[id]', params: { id: yourSoundId } }) : play,
         onPlay: play,
       };
     }
@@ -119,7 +121,7 @@ export default function HomeScreen() {
       };
     }
     return undefined;
-  }, [playerLoaded, resumeTrack, resumePosition, resumeDuration, recentTracks, starter, newReleases.data, router]);
+  }, [playerLoaded, resumeTrack, resumePosition, resumeDuration, recentTracks, starter, yourSoundId, newReleases.data, router]);
 
   // Quick-access tiles: likes and recently played (both open in the Library), then your playlists, then what you
   // played last. A newcomer with none of that gets the featured playlists and albums too, so the top of Home is full.
@@ -215,7 +217,7 @@ export default function HomeScreen() {
         refreshControl={refreshControl}
         showsVerticalScrollIndicator={false}
       >
-        <StarterPlaylist />
+        <YourSoundSheet />
         <HomeHero tiles={tiles} featured={featured} />
 
         {loading ? (

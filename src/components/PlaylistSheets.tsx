@@ -5,6 +5,7 @@ import { blacApi } from '@/api/blac';
 import { refreshPlaylistQueries } from '@/api/blac/playlistCache';
 import { useMyPlaylistsFor } from '@/api/blac/queries';
 import type { Playlist, Track } from '@/domain/types';
+import { recordPlaylistAdd } from '@/stats/signals';
 import { showToast } from '@/store/toastStore';
 import { radius, useTheme } from '@/theme';
 import { fontStyle } from '@/theme/fonts';
@@ -244,6 +245,7 @@ function AddToPlaylist({ track, dismiss }: { track: Track; dismiss: (after?: () 
   const add = async (playlist: Playlist) => {
     try {
       await blacApi.addToPlaylist(playlist.id, track.id);
+      recordPlaylistAdd(track.id, playlist.id);
       refreshPlaylistQueries(playlist.id);
       haptics.success();
       dismiss(() => showToast(`Added to ${playlist.name}`));
@@ -273,6 +275,7 @@ function AddToPlaylist({ track, dismiss }: { track: Track; dismiss: (after?: () 
           blacApi
             .addToPlaylist(created.id, track.id)
             .then(() => {
+              recordPlaylistAdd(track.id, created.id);
               refreshPlaylistQueries(created.id);
               showToast(`Added to ${created.name}`);
             })

@@ -3,6 +3,7 @@
 import { Pressable } from 'react-native';
 import { Heart } from 'lucide-react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withSequence, withSpring, withTiming } from 'react-native-reanimated';
+import { recordLike } from '@/stats/signals';
 import { useFavouritesStore, useIsFavourite } from '@/store/favouritesStore';
 import { useTheme } from '@/theme';
 import { ActionButton, useSecondaryButton } from './DetailActions';
@@ -34,6 +35,7 @@ export function FavouriteButton({
 
   const onPress = () => {
     const added = toggle(itemId);
+    recordLike(itemId, added);
     // A little pop when you add one, a light tap when you remove it.
     if (added) {
       haptics.success();

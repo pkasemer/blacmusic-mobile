@@ -1,12 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, BackHandler, Image, TextInput, View } from 'react-native';
-import Animated, { FadeIn } from 'react-native-reanimated';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ActivityIndicator, Alert, BackHandler, TextInput, View } from 'react-native';
 import { ApiError, authApi, USES_BACKEND } from '@/api/blac';
 import { onboardingApi } from '@/api/blac/onboarding';
 import { signOut } from '@/auth/session';
 import { BrandBackdrop } from '@/components/BrandBackdrop';
-import { ON_BRAND, PrimaryAction, SetupFrame } from '@/components/onboarding/parts';
+import { Finale } from '@/components/onboarding/Finale';
+import { ON_BRAND, SetupFrame } from '@/components/onboarding/parts';
 import { ArtistStep, GenreStep, LanguageStep, RegionStep } from '@/components/onboarding/steps';
 import { Text } from '@/components/Text';
 import { missingFor } from '@/domain/onboarding';
@@ -40,7 +39,6 @@ const confirmSignOut = () =>
  * app opens when every step is done.
  */
 export default function SetupScreen() {
-  const insets = useSafeAreaInsets();
   const state = useOnboardingStore();
   const { step, goTo, finishing } = state;
   const userId = useAuthStore((s) => s.user?.id);
@@ -127,30 +125,7 @@ export default function SetupScreen() {
   return (
     <BrandBackdrop>
       {current === 'done' ? (
-        <View style={{ flex: 1, paddingTop: insets.top, paddingBottom: Math.max(insets.bottom, 20) + 8, paddingHorizontal: 28 }}>
-          <Animated.View entering={FadeIn.duration(450)} style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 18 }}>
-            <Image source={require('../../assets/splash-icon.png')} style={{ width: 96, height: 96 }} resizeMode="contain" />
-            <Text variant="display" accessibilityRole="header" style={{ textAlign: 'center', fontSize: 34, lineHeight: 40 }}>
-              {"We've got your sound."}
-            </Text>
-            <Text variant="body" color="textSecondary" style={{ textAlign: 'center', fontSize: 17, lineHeight: 24, maxWidth: 340 }}>
-              Your music journey starts here. Discover familiar favourites, new artists and the sounds of Uganda.
-            </Text>
-          </Animated.View>
-          <View style={{ gap: 6, width: '100%', maxWidth: 560, alignSelf: 'center' }}>
-            <PrimaryAction
-              label="Start Listening"
-              busy={finishing}
-              onPress={() => {
-                haptics.success();
-                state.update({ finishing: true });
-              }}
-            />
-            <Text onPress={() => goTo('artists')} accessibilityRole="button" variant="body" color="textSecondary" style={{ textAlign: 'center', padding: 12 }}>
-              Back
-            </Text>
-          </View>
-        </View>
+        <Finale busy={finishing} onStart={() => state.update({ finishing: true })} onBack={() => goTo('artists')} />
       ) : (
         <SetupFrame
           key={current}

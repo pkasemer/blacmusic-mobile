@@ -17,6 +17,8 @@ import { BrandBackground } from '@/components/BrandBackdrop';
 import { Toast } from '@/components/Toast';
 import { useNotifications } from '@/notifications/useNotifications';
 import { useReportPlays } from '@/stats/useReportPlays';
+import { useListeningSignals } from '@/stats/useListeningSignals';
+import { useYourSound } from '@/onboarding/yourSound';
 import { useSaveProgress } from '@/audio/music/useSaveProgress';
 import { useRemoveGone } from '@/offline/removeGone';
 import { useArtistWatch } from '@/studio/useArtistWatch';
@@ -30,6 +32,8 @@ import { useRequireOnboarding, useSendOnboarding } from '@/onboarding/finish';
 import { useDownloadStore } from '@/store/downloadStore';
 import { useOnboardingStore } from '@/store/onboardingStore';
 import { useFavouritesStore } from '@/store/favouritesStore';
+import { useListeningStore } from '@/store/listeningStore';
+import { useYourSoundStore } from '@/store/yourSoundStore';
 import { useHistoryStore, useRecordListeningHistory } from '@/store/historyStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { useTheme } from '@/theme';
@@ -39,7 +43,7 @@ import { fontSources } from '@/theme/fonts';
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
 /** True once both persisted Zustand stores have been read from AsyncStorage. */
-const persistedStores = [useSettingsStore, useHistoryStore, useFavouritesStore, useDownloadStore, useArtistStore, useAuthStore, useOnboardingStore];
+const persistedStores = [useSettingsStore, useHistoryStore, useFavouritesStore, useDownloadStore, useArtistStore, useAuthStore, useOnboardingStore, useListeningStore, useYourSoundStore];
 
 function useStoresHydrated() {
   const allHydrated = () => persistedStores.every((store) => store.persist.hasHydrated());
@@ -84,6 +88,7 @@ function AppShell() {
   useSessionSync();
   useNotifications(USES_BACKEND && hasSession && !needsCode);
   useReportPlays(USES_BACKEND && hasSession && !needsCode);
+  useListeningSignals(USES_BACKEND && hasSession && !needsCode);
   useSaveProgress();
   // Take off the phone what is no longer on Blac (a banned artist's downloads, recent searches, queued songs).
   useRemoveGone(USES_BACKEND && hasSession && !needsCode);
@@ -91,6 +96,7 @@ function AppShell() {
   useArtistWatch(USES_BACKEND && hasSession && !needsCode);
   useRequireOnboarding(USES_BACKEND && hasSession && !needsCode);
   useSendOnboarding(USES_BACKEND && hasSession && !needsCode);
+  useYourSound(USES_BACKEND && hasSession && !needsCode);
   useNetworkWatcher();
   useAudioMode();
   useSleepTimerEngine();
