@@ -98,6 +98,16 @@ export async function registerPushToken(): Promise<boolean> {
   }
 }
 
+/**
+ * Notifications are on by default. The phone still has the last word, so someone it has never asked is shown its
+ * "Allow notifications?" box (it appears only once), and the phone is registered if they allow it. Not for people who
+ * switched them off in Blac's Settings.
+ */
+export async function enablePushByDefault(): Promise<void> {
+  if ((await getPushStatus()) === 'undetermined') await requestPush();
+  await registerPushToken();
+}
+
 /** Stops the backend sending to this phone. Call it while still signed in. */
 export async function unregisterPushToken(): Promise<void> {
   const token = await tokenToRemove();

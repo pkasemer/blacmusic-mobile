@@ -166,7 +166,10 @@ export default function VerifyCodeScreen() {
                       backgroundColor: code[i] ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.07)',
                     }}
                   >
-                    <Text style={{ ...fontStyle('rounded', '600'), fontSize: 28, color: '#FFFFFF' }}>{code[i] ?? ''}</Text>
+                    {/* The line height must grow with the size, or the digit is cut. Very large text settings stop at what fits the box. */}
+                    <Text maxFontSizeMultiplier={1.3} style={{ ...fontStyle('rounded', '600'), fontSize: 28, lineHeight: 36, color: '#FFFFFF' }}>
+                      {code[i] ?? ''}
+                    </Text>
                   </View>
                 );
               })}
