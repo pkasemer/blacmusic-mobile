@@ -1,11 +1,18 @@
 import AVFoundation
 import ExpoModulesCore
 
-/// expo-audio does not say how much of a song has loaded, so this reads it from the same player. A queue in
-/// expo-audio is a `SharedRef<AVQueuePlayer>`, which Expo lets another module receive as it is.
+/// Two things expo-audio's queue does not offer, done on the same player: how much of a song has loaded, and how it
+/// uses AirPlay. A queue in expo-audio is a `SharedRef<AVQueuePlayer>`, which Expo lets another module receive as it is.
 public class BlacAudioBufferModule: Module {
   public func definition() -> ModuleDefinition {
     Name("BlacAudioBuffer")
+
+    // iPhone's default hands a TV the song's link to fetch and play by itself, and the TV can sit loading. With that
+    // off, the iPhone keeps playing and sends the sound, to a TV as to a speaker. (expo-audio offers this switch for
+    // its single player, `allowsExternalPlayback`, but not for its queue.)
+    Function("keepPlaybackOnPhone") { (player: SharedRef<AVQueuePlayer>) in
+      player.ref.allowsExternalPlayback = false
+    }
 
     // The point, in seconds, that the playing song has loaded up to without a gap from where it is now. 0 if unknown.
     Function("loadedUpTo") { (player: SharedRef<AVQueuePlayer>) -> Double in

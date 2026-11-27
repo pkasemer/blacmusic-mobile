@@ -8,7 +8,7 @@ import { useMusicStore } from '@/store/musicStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { showToast } from '@/store/toastStore';
 import { haptics } from '@/utils/haptics';
-import { loadedUpTo } from '../../../modules/blac-audio-buffer';
+import { keepPlaybackOnPhone, loadedUpTo } from '../../../modules/blac-audio-buffer';
 import { cancelPreload, clearPreloads, fileIsThere, isPreloadFile, preloadedUri, startPreload } from './preload';
 import { fetchMix, rememberMix } from './mixData';
 import { emitPlayerEvent } from './playerEvents';
@@ -301,6 +301,8 @@ export function getPlaylist(): AudioPlaylist {
   if (playlist) return playlist;
   const created = createAudioPlaylist({ updateInterval: 500, loop: 'none' });
   playlist = created;
+  // So a TV chosen for AirPlay gets the sound, rather than sitting on "loading".
+  keepPlaybackOnPhone(created);
 
   // The native side moved to another track (finished, or next/previous from the lock screen).
   created.addListener('trackChanged', ({ currentIndex }) => {
