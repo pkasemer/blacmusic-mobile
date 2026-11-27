@@ -11,6 +11,7 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.blac.music",
       "infoPlist": {
+        "UIViewControllerBasedStatusBarAppearance": true,
         "NSAppTransportSecurity": {
           "NSAllowsArbitraryLoadsForMedia": true
         },

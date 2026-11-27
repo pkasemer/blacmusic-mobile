@@ -36,6 +36,8 @@ import { useListeningStore } from '@/store/listeningStore';
 import { useYourSoundStore } from '@/store/yourSoundStore';
 import { useHistoryStore, useRecordListeningHistory } from '@/store/historyStore';
 import { useSettingsStore } from '@/store/settingsStore';
+import { statusBarOptions } from '@/theme/statusBar';
+import { useMusicStore } from '@/store/musicStore';
 import { useTheme } from '@/theme';
 import { applyScheme } from '@/theme/scheme';
 import { fontSources } from '@/theme/fonts';
@@ -72,6 +74,7 @@ function AppShell() {
   // The navigator paints its own background from this theme (light grey in light mode). Before sign-in it must be
   // see-through, or it covers the brand backdrop drawn behind it.
   const base = isDark ? DarkTheme : DefaultTheme;
+  const playerOpen = useMusicStore((s) => s.active && s.isFullOpen);
   const navTheme = useMemo(
     () => (inApp ? base : { ...base, colors: { ...base.colors, background: 'transparent', card: 'transparent' } }),
     [base, inApp],
@@ -116,7 +119,14 @@ function AppShell() {
       <ThemeProvider value={navTheme}>
       <View style={{ flex: 1, backgroundColor: inApp ? colors.bg : '#000000' }}>
       {inApp ? null : <BrandBackground />}
-      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: inApp ? colors.bg : 'transparent' } }}>
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          contentStyle: { backgroundColor: inApp ? colors.bg : 'transparent' },
+          // White over the black first screens, the full player (dark in both themes) and the dark theme.
+          ...statusBarOptions(!inApp || playerOpen || isDark),
+        }}
+      >
         {/* Signed out: only the welcome, tour and sign-in screens exist. The app opens as soon as tokens are saved. */}
         <Stack.Protected guard={!signedIn}>
           <Stack.Screen name="(auth)" options={{ animation: 'fade' }} />
