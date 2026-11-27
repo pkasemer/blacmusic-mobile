@@ -20,6 +20,7 @@ import { useCurrentItem, useMusicStore } from '@/store/musicStore';
 import { radius } from '@/theme';
 import { InkContext, type Ink } from '@/theme/ink';
 import { haptics } from '@/utils/haptics';
+import { AirPlayButton } from './AirPlayButton';
 import { ArtistName } from './ArtistName';
 import { Artwork } from './Artwork';
 import { FavouriteButton } from './FavouriteButton';
@@ -408,11 +409,12 @@ export function MusicFullPlayer() {
               </Transport>
             </View>
 
-            {/* Lyrics on the left, the sleep timer in the middle, the queue on the right */}
+            {/* Lyrics on the left, then AirPlay (iPhone and iPad) and the sleep timer, the queue on the right */}
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 18 }}>
               <BarButton label={panel === 'lyrics' ? 'Hide lyrics' : 'Show lyrics'} active={panel === 'lyrics'} disabled={!hasLyricsButton} onPress={() => toggle('lyrics')} ink={ink}>
                 <MessageSquareQuote size={22} color={panel === 'lyrics' ? CANVAS : ink.primary} />
               </BarButton>
+              <AirPlayButton tint={ink.primary} activeTint={ink.accent} />
               <BarButton label="Sleep timer" onPress={() => setSleepOpen(true)} ink={ink}>
                 {sleepRemaining !== null ? (
                   <Text variant="caption" style={{ color: ink.primary, fontVariant: ['tabular-nums'] }}>
