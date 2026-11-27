@@ -4,7 +4,7 @@ import Animated from 'react-native-reanimated';
 import { useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { VerifiedBadge } from '@/components/VerifiedBadge';
-import { blacApi } from '@/api/blac';
+import { blacApi, USES_BACKEND } from '@/api/blac';
 import { musicKeys, useArtist, useArtistAlbums, useArtistTracks, useRelatedArtists } from '@/api/blac/queries';
 import { queryClient } from '@/api/queryClient';
 import type { Album, Artist, Track } from '@/domain/types';
@@ -16,6 +16,7 @@ import { Card } from '@/components/Card';
 import { DetailHero, HeroCover, HeroMeta, useHeroCoverSize, useHeroScroll } from '@/components/DetailHero';
 import { AlbumShelf, ArtistShelf } from '@/components/MusicShelf';
 import { ShareLinkButton } from '@/components/CollectionActions';
+import { FavouriteArtistButton } from '@/components/FavouriteArtistButton';
 import { UserCheck, UserPlus } from 'lucide-react-native';
 import { ActionButton, DetailActions, useSecondaryButton } from '@/components/DetailActions';
 import { LatestRelease } from '@/components/LatestRelease';
@@ -77,7 +78,7 @@ function FollowButton({ artist }: { artist: Artist }) {
   );
 }
 
-/** An artist's page: picture, name, follow and play buttons, popular songs, albums and a short bio. */
+/** An artist's page: picture, name, follow, favourite and play buttons, popular songs, albums and a short bio. */
 export default function ArtistScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { colors } = useTheme();
@@ -150,6 +151,7 @@ export default function ArtistScreen() {
           tools={
             <>
               {data.id !== ownArtistId ? <FollowButton artist={data} /> : null}
+              {USES_BACKEND && data.id !== ownArtistId ? <FavouriteArtistButton key={data.id} artist={data} /> : null}
               <ShareLinkButton label={`Share ${data.name}`} message={`Listen to ${data.name} on Blac`} path={`/artist/${data.id}`} />
             </>
           }
