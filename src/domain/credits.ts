@@ -49,3 +49,19 @@ export function roleName(credit: Pick<Credit, 'role' | 'roleLabel'>): string {
   if (credit.role === 'other') return credit.roleLabel?.trim() || 'Other';
   return CREDIT_ROLES.find((r) => r.value === credit.role)?.label ?? credit.role;
 }
+
+/**
+ * Credits by what was done ("Producer" with everyone who produced), in the order roles first appear. Someone credited
+ * twice with the same role (for the song and again for the release) is listed once, with their profile if either has it.
+ */
+export function creditsByRole(credits: Credit[]): { role: string; people: Credit[] }[] {
+  const groups = new Map<string, Map<string, Credit>>();
+  for (const credit of credits) {
+    const role = roleName(credit);
+    const people = groups.get(role) ?? new Map<string, Credit>();
+    const name = credit.name.trim().toLowerCase();
+    if (!people.get(name)?.artistId) people.set(name, credit);
+    groups.set(role, people);
+  }
+  return [...groups].map(([role, people]) => ({ role, people: [...people.values()] }));
+}

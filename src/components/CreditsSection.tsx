@@ -1,18 +1,9 @@
 import { View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { roleName, type Credit } from '@/domain/credits';
+import { creditsByRole, type Credit } from '@/domain/credits';
+import { useTheme } from '@/theme';
 import { Card } from './Card';
 import { Text } from './Text';
-
-/** Groups credits by what they did: "Producer" with everyone who produced, in the order roles first appear. */
-function byRole(credits: Credit[]): { role: string; people: Credit[] }[] {
-  const groups = new Map<string, Credit[]>();
-  for (const c of credits) {
-    const key = roleName(c);
-    groups.set(key, [...(groups.get(key) ?? []), c]);
-  }
-  return [...groups.entries()].map(([role, people]) => ({ role, people }));
-}
 
 /** A person's name; it opens their artist page when they have a profile on Blac. */
 function Person({ credit, last }: { credit: Credit; last: boolean }) {
@@ -28,11 +19,14 @@ function Person({ credit, last }: { credit: Credit; last: boolean }) {
   );
 }
 
-function RoleRows({ credits }: { credits: Credit[] }) {
+/** One row for each role, with a thin line between rows, like the Details card. `last`: nothing follows the rows. */
+function RoleRows({ credits, last }: { credits: Credit[]; last: boolean }) {
+  const { colors } = useTheme();
+  const rows = creditsByRole(credits);
   return (
-    <View style={{ gap: 12 }}>
-      {byRole(credits).map((g) => (
-        <View key={g.role} style={{ gap: 2 }}>
+    <View>
+      {rows.map((g, row) => (
+        <View key={g.role} style={{ gap: 3, paddingVertical: 12, borderBottomWidth: last && row === rows.length - 1 ? 0 : 1, borderBottomColor: colors.border }}>
           <Text variant="caption" color="textSecondary">
             {g.role}
           </Text>
@@ -48,9 +42,9 @@ function RoleRows({ credits }: { credits: Credit[] }) {
 }
 
 /**
- * The "Credits" block of a page. For a release it shows the credits for the whole release first, then the ones for
- * each song under that song's name; for a single song it simply lists everything by role. Nothing is drawn when
- * nobody is credited.
+ * The "Credits" block of a page. For a release of several songs (`perTrack`) it shows the credits for the whole release
+ * first, then the ones for each song under that song's name; for one song, or a release of one, it simply lists
+ * everything by role. Nothing is drawn when nobody is credited.
  */
 export function CreditsSection({ credits, perTrack }: { credits: Credit[] | null | undefined; perTrack?: boolean }) {
   if (!credits || credits.length === 0) return null;
@@ -69,14 +63,14 @@ export function CreditsSection({ credits, perTrack }: { credits: Credit[] | null
   return (
     <View style={{ gap: 12, paddingHorizontal: 20 }}>
       <Text variant="title">Credits</Text>
-      <Card style={{ padding: 16, gap: 18 }}>
-        {flat.length > 0 ? <RoleRows credits={flat} /> : null}
-        {[...tracks.entries()].map(([id, t]) => (
-          <View key={id} style={{ gap: 10 }}>
-            <Text variant="bodyStrong" numberOfLines={1}>
+      <Card style={{ paddingHorizontal: 16 }}>
+        {flat.length > 0 ? <RoleRows credits={flat} last={tracks.size === 0} /> : null}
+        {[...tracks.entries()].map(([id, t], i) => (
+          <View key={id}>
+            <Text variant="bodyStrong" numberOfLines={1} style={{ paddingTop: 14 }}>
               {t.title}
             </Text>
-            <RoleRows credits={t.items} />
+            <RoleRows credits={t.items} last={i === tracks.size - 1} />
           </View>
         ))}
       </Card>

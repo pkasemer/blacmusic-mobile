@@ -35,3 +35,19 @@ test("a release shows what the server says, else what its songs tell", () => {
   assert.strictEqual(releaseLine(releaseWithFeatures(release('album', [{ id: null, name: 'Cy' }]), songs)), 'Kato, Cy');
   assert.strictEqual(releaseLine(releaseWithFeatures(release('single'), [track()])), 'Kato');
 });
+
+test('credits list each person once for each role, keeping the profile link', () => {
+  const { creditsByRole } = makeLoader()('domain/credits');
+  const groups = creditsByRole([
+    { name: 'Ava', role: 'producer', trackId: 't1' },
+    { name: 'Ben', role: 'featured_artist' },
+    { name: 'ava ', role: 'producer', artistId: 'a2' },
+    { name: 'Ava', role: 'producer' },
+    { name: 'Ava', role: 'songwriter' },
+  ]);
+  assert.deepStrictEqual(groups.map((g) => [g.role, g.people.map((p) => p.artistId ?? p.name)]), [
+    ['Producer', ['a2']],
+    ['Featured artist', ['Ben']],
+    ['Songwriter', ['Ava']],
+  ]);
+});

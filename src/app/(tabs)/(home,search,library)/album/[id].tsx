@@ -126,7 +126,7 @@ export default function AlbumScreen() {
           ))}
         </View>
 
-        <CreditsSection credits={credits.data} perTrack />
+        <CreditsSection credits={credits.data} perTrack={tracks.length > 1} />
 
         <AlbumShelf title="Related releases" albums={related.data} more={{ list: 'related-albums', ref: album.id }} />
       </Animated.ScrollView>
