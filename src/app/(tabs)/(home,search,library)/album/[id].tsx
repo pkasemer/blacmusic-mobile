@@ -1,7 +1,10 @@
+import { useState } from 'react';
 import { ActivityIndicator, Pressable, View } from 'react-native';
 import Animated from 'react-native-reanimated';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SongArtistsSheet } from '@/components/SongArtistsSheet';
+import { artistsOf, featuredSuffix, releaseLine, releaseWithFeatures } from '@/domain/artists';
 import { useAlbum, useRelatedAlbums } from '@/api/blac/queries';
 import { useReleaseCredits } from '@/api/blac/credits';
 import { CreditsSection } from '@/components/CreditsSection';
@@ -31,6 +34,7 @@ export default function AlbumScreen() {
   const query = useAlbum(id);
   const related = useRelatedAlbums(query.data?.album);
   const credits = useReleaseCredits(id);
+  const [showingArtists, setShowingArtists] = useState(false);
   const cover = useHeroCoverSize();
 
   if (query.isPending) {
@@ -55,7 +59,8 @@ export default function AlbumScreen() {
     );
   }
 
-  const { album, tracks } = data;
+  const { tracks } = data;
+  const album = releaseWithFeatures(data.album, tracks);
   const kind = album.type === 'single' ? 'Single' : album.type === 'ep' ? 'EP' : 'Album';
   const totalSec = tracks.reduce((sum, t) => sum + t.durationSec, 0);
   const released = formatDate(album.releaseDate);
@@ -78,17 +83,12 @@ export default function AlbumScreen() {
             <Artwork id={album.id} logoUrl={album.artworkLargeUrl ?? album.artworkUrl} size={cover} />
           </HeroCover>
           <HeroTitle>{album.title}</HeroTitle>
-          {album.artistId ? (
-            <Pressable
-              onPress={() => router.push({ pathname: '/artist/[id]', params: { id: album.artistId } })}
-              accessibilityRole="button"
-              accessibilityLabel={`Open artist ${album.artistName}`}
-              hitSlop={8}
-            >
-              <ArtistName name={album.artistName} verified={album.artistVerified} variant="body" color="accent" style={{ justifyContent: 'center' }} textStyle={{ fontWeight: '600' }} />
+          {artistsOf(album).some((x) => x.id) ? (
+            <Pressable onPress={() => setShowingArtists(true)} accessibilityRole="button" accessibilityLabel={`${releaseLine(album)}. Show artists`} hitSlop={8} style={{ maxWidth: '100%', paddingHorizontal: 24 }}>
+              <ArtistName name={album.artistName} verified={album.artistVerified} others={featuredSuffix(album)} variant="body" color="accent" style={{ justifyContent: 'center' }} textStyle={{ fontWeight: '600' }} />
             </Pressable>
           ) : (
-            <ArtistName name={album.artistName} verified={album.artistVerified} variant="body" color="textSecondary" style={{ justifyContent: 'center' }} />
+            <ArtistName name={album.artistName} verified={album.artistVerified} others={featuredSuffix(album)} variant="body" color="textSecondary" style={{ justifyContent: 'center' }} />
           )}
           <HeroMeta>{meta}</HeroMeta>
           {album.description ? (
@@ -106,7 +106,7 @@ export default function AlbumScreen() {
               <DownloadAllButton tracks={tracks} what={album.type === 'single' ? 'single' : 'album'} />
               <ShareLinkButton
                 label={`Share ${album.title}`}
-                message={`Listen to the ${album.type === 'single' ? 'single' : 'album'} "${album.title}" by ${album.artistName} on Blac`}
+                message={`Listen to the ${album.type === 'single' ? 'single' : 'album'} "${album.title}" by ${releaseLine(album)} on Blac`}
                 path={`/album/${album.id}`}
               />
             </>
@@ -131,6 +131,7 @@ export default function AlbumScreen() {
         <AlbumShelf title="Related releases" albums={related.data} more={{ list: 'related-albums', ref: album.id }} />
       </Animated.ScrollView>
       {menu.sheet}
+      <SongArtistsSheet track={showingArtists ? album : null} onClose={() => setShowingArtists(false)} onOpen={(artistId) => router.push({ pathname: '/artist/[id]', params: { id: artistId } })} />
     </TabScreen>
   );
 }

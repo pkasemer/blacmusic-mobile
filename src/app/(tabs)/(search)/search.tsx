@@ -3,6 +3,7 @@ import { FlatList, Pressable, TextInput, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Search, X } from 'lucide-react-native';
+import { artistLine, featuredSuffix, releaseLine } from '@/domain/artists';
 import { useAlbums, useSearchAlbums, useSearchArtists, useSearchPlaylists, useTrackSearch, useTrending } from '@/api/blac/queries';
 import { playQueue } from '@/audio/music/musicEngine';
 import type { PlaybackSource } from '@/audio/music/source';
@@ -230,7 +231,7 @@ export default function SearchScreen() {
           separator={!last}
           onPress={() => {
             dismissKeyboard();
-            open('track', track.id, { kind: 'track', id: track.id, title: track.title, subtitle: track.artistName, imageUrl: track.artworkUrl, verified: track.artistVerified, tag: 'Song' });
+            open('track', track.id, { kind: 'track', id: track.id, title: track.title, subtitle: artistLine(track), imageUrl: track.artworkUrl, verified: track.artistVerified, tag: 'Song' });
           }}
           onPlay={() => {
             dismissKeyboard();
@@ -264,11 +265,11 @@ export default function SearchScreen() {
           leading={<Artwork id={album.id} logoUrl={album.artworkUrl} size={52} />}
           title={album.title}
           tag={tag}
-          subtitle={<ArtistName name={album.artistName} verified={album.artistVerified} />}
+          subtitle={<ArtistName name={album.artistName} verified={album.artistVerified} others={featuredSuffix(album)} />}
           separator={!last}
           onPress={() => {
             dismissKeyboard();
-            open('album', album.id, { kind: 'album', id: album.id, title: album.title, subtitle: album.artistName, imageUrl: album.artworkUrl, verified: album.artistVerified, tag });
+            open('album', album.id, { kind: 'album', id: album.id, title: album.title, subtitle: releaseLine(album), imageUrl: album.artworkUrl, verified: album.artistVerified, tag });
           }}
         />
       );

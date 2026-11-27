@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { ActivityIndicator, FlatList, View } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { releaseLine } from '@/domain/artists';
 import { useMoreList } from '@/api/blac/queries';
 import { Artwork } from '@/components/Artwork';
 import { Avatar } from '@/components/Avatar';
@@ -34,7 +35,7 @@ function Row({ item }: { item: MoreItem }) {
         leading={<Artwork id={album.id} logoUrl={album.artworkUrl} size={LEAD} />}
         title={album.title}
         tag={album.type === 'single' ? 'Single' : album.type === 'ep' ? 'EP' : 'Album'}
-        subtitle={<Detail>{album.artistName}</Detail>}
+        subtitle={<Detail>{releaseLine(album)}</Detail>}
         onPress={() => router.push({ pathname: '/album/[id]', params: { id: album.id } })}
       />
     );

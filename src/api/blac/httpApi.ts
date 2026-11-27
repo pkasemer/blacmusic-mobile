@@ -35,7 +35,7 @@ interface WireTrack {
   artistId?: string;
   artistName: string;
   artistVerified?: boolean;
-  featuredArtists?: { artistId?: string; name: string; imageUrl?: string | null; verified?: boolean }[] | null;
+  featuredArtists?: WireFeature[] | null;
   hasLyrics?: boolean;
   albumId?: string | null;
   albumTitle?: string | null;
@@ -73,7 +73,15 @@ interface WireUploadSummary {
   error?: string;
 }
 
+interface WireFeature {
+  artistId?: string;
+  name: string;
+  imageUrl?: string | null;
+  verified?: boolean;
+}
+
 interface WireRelease {
+  featuredArtists?: WireFeature[] | null;
   id: string;
   type: string;
   /** What it is called to listeners: single, ep or album (an album of up to 6 tracks is an EP). */
@@ -114,6 +122,9 @@ interface WireEpisode {
 
 // ---- Mapping ---------------------------------------------------------------------------------------
 
+const toFeatured = (list: WireFeature[] | null | undefined) =>
+  list?.map((a) => ({ id: a.artistId || null, name: a.name, imageUrl: reachable(a.imageUrl), verified: a.verified }));
+
 const toTrack = (t: WireTrack): Track => ({
   kind: 'track',
   id: t.id,
@@ -121,7 +132,7 @@ const toTrack = (t: WireTrack): Track => ({
   artistId: t.artistId ?? '',
   artistName: t.artistName,
   artistVerified: t.artistVerified,
-  featuredArtists: t.featuredArtists?.map((a) => ({ id: a.artistId || null, name: a.name, imageUrl: reachable(a.imageUrl), verified: a.verified })),
+  featuredArtists: toFeatured(t.featuredArtists),
   hasLyrics: t.hasLyrics,
   releaseId: t.albumId ?? null,
   albumTitle: t.albumTitle ?? null,
@@ -255,6 +266,7 @@ const toAlbum = (r: WireRelease, fallbackArtist?: { id: string; name: string }):
   artistId: r.artist?.id ?? fallbackArtist?.id ?? '',
   artistName: r.artist?.name ?? fallbackArtist?.name ?? '',
   artistVerified: r.artist?.verified,
+  featuredArtists: toFeatured(r.featuredArtists),
   releaseDate: r.releaseDate ?? r.publishedAt,
   trackCount: r.trackCount ?? r.tracks?.length ?? 0,
   genre: r.genre,

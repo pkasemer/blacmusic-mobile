@@ -106,6 +106,8 @@ export interface Album {
   artistName: string;
   /** The artist has the verified badge. */
   artistVerified?: boolean;
+  /** Artists featured on the release. Absent when there are none, or the server does not say. */
+  featuredArtists?: Track['featuredArtists'];
   /** ISO date. */
   releaseDate?: string;
   trackCount: number;

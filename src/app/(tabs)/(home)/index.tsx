@@ -3,6 +3,7 @@ import { ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Heart, History, ListMusic } from 'lucide-react-native';
+import { artistLine, releaseLine } from '@/domain/artists';
 import { playQueue } from '@/audio/music/musicEngine';
 import { useAlbums, useFeaturedArtists, useFollowedReleases, useMyPlaylists, usePlayables, usePlaylistGroups, usePlaylists, usePodcasts } from '@/api/blac/queries';
 import { Artwork } from '@/components/Artwork';
@@ -87,7 +88,7 @@ export default function HomeScreen() {
       return {
         label: 'Continue listening',
         title: last.title,
-        subtitle: position > 5 && duration > 0 ? `${last.artistName} · ${formatTime(Math.max(0, duration - position))} left` : last.artistName,
+        subtitle: position > 5 && duration > 0 ? `${artistLine(last)} · ${formatTime(Math.max(0, duration - position))} left` : artistLine(last),
         art: <Artwork id={last.id} logoUrl={last.artworkUrl} size={112} />,
         tint: { id: last.id, logoUrl: last.artworkUrl },
         progress: duration > 0 ? position / duration : 0,
@@ -114,7 +115,7 @@ export default function HomeScreen() {
       return {
         label: 'New release',
         title: fresh.title,
-        subtitle: fresh.artistName,
+        subtitle: releaseLine(fresh),
         art: <Artwork id={fresh.id} logoUrl={fresh.artworkUrl} size={112} />,
         tint: { id: fresh.id, logoUrl: fresh.artworkUrl },
         onPress: () => router.push({ pathname: '/album/[id]', params: { id: fresh.id } }),

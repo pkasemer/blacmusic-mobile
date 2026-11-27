@@ -10,6 +10,9 @@ import { BottomSheet } from './BottomSheet';
 import { Text } from './Text';
 import { VerifiedBadge } from './VerifiedBadge';
 
+/** A song, or a release: what is needed to list who is on it. */
+type Credited = Pick<Track, 'title' | 'artistId' | 'artistName' | 'artistVerified' | 'artistImageUrl' | 'featuredArtists'>;
+
 function Row({ artist, onPress }: { artist: SongArtist; onPress: () => void }) {
   const { colors } = useTheme();
   // A song does not always carry its artists' pictures: their profiles have them.
@@ -46,7 +49,7 @@ function Row({ artist, onPress }: { artist: SongArtist; onPress: () => void }) {
  * Everyone on a song. Tapping an artist's name anywhere opens this first; picking one slides it away and then calls
  * `onOpen` with their id, to go to the profile.
  */
-export function SongArtistsSheet({ track, onClose, onOpen }: { track: Track | null; onClose: () => void; onOpen: (artistId: string) => void }) {
+export function SongArtistsSheet({ track, onClose, onOpen }: { track: Credited | null; onClose: () => void; onOpen: (artistId: string) => void }) {
   return (
     <BottomSheet visible={!!track} onClose={onClose}>
       {(dismiss) =>

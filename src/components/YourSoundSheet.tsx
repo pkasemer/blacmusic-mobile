@@ -1,6 +1,7 @@
 import { ActivityIndicator, Pressable, ScrollView, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Check, ListMusic, Play, RefreshCw } from 'lucide-react-native';
+import { artistLine } from '@/domain/artists';
 import { usePlaylist } from '@/api/blac/queries';
 import { playQueue } from '@/audio/music/musicEngine';
 import { YOUR_SOUND_NAME } from '@/onboarding/yourSoundRules';
@@ -75,7 +76,7 @@ export function YourSoundSheet() {
                 key={song.id}
                 onPress={() => dismiss(() => play(i))}
                 accessibilityRole="button"
-                accessibilityLabel={`Play ${song.title} by ${song.artistName}`}
+                accessibilityLabel={`Play ${song.title} by ${artistLine(song)}`}
                 style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 56, opacity: pressed ? 0.6 : 1 })}
               >
                 <Artwork id={song.id} logoUrl={song.artworkUrl} size={44} />
@@ -84,7 +85,7 @@ export function YourSoundSheet() {
                     {song.title}
                   </Text>
                   <Text variant="caption" color="textSecondary" numberOfLines={1}>
-                    {song.artistName}
+                    {artistLine(song)}
                   </Text>
                 </View>
               </Pressable>

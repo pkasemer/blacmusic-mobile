@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Pressable, Switch, TextInput, View } from 'react-native';
 import { Check, Globe, Lock, Plus } from 'lucide-react-native';
+import { artistLine } from '@/domain/artists';
 import { blacApi } from '@/api/blac';
 import { refreshPlaylistQueries } from '@/api/blac/playlistCache';
 import { useMyPlaylistsFor } from '@/api/blac/queries';
@@ -291,7 +292,7 @@ function AddToPlaylist({ track, dismiss }: { track: Track; dismiss: (after?: () 
       <View style={{ paddingHorizontal: 20, paddingBottom: 6 }}>
         <Text variant="title">Add to playlist</Text>
         <Text variant="caption" color="textSecondary" numberOfLines={1}>
-          {track.title} · {track.artistName}
+          {track.title} · {artistLine(track)}
         </Text>
       </View>
 

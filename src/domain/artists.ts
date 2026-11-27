@@ -1,5 +1,5 @@
 /** Who a song is by: its own artist, then whoever is featured on it. */
-import type { Playable, Track } from './types';
+import type { Album, Playable, Track } from './types';
 
 export interface SongArtist {
   /** The artist's profile on Blac, or `null` for a name with no profile to open. */
@@ -34,3 +34,20 @@ export const featuredSuffix = (track: Parameters<typeof artistsOf>[0]) =>
 
 /** One line of text for a song or episode: every artist, comma separated, or the podcast's name. */
 export const artistLine = (item: Playable) => (item.kind === 'track' ? item.artistName + featuredSuffix(item) : item.podcastTitle);
+
+type Feature = NonNullable<Track['featuredArtists']>[number];
+const isIn = (list: Feature[], one: Feature) => list.some((a) => (one.id && a.id === one.id) || sameName(a.name, one.name));
+
+/**
+ * A release with who is featured on it. What the server says, when it does; otherwise what its songs tell: all of a
+ * single's features, or, for a longer release, only those on every one of its songs.
+ */
+export function releaseWithFeatures(release: Album, tracks: Track[] = []) {
+  if (release.featuredArtists?.length || tracks.length === 0) return release;
+  const each = tracks.map((t) => t.featuredArtists ?? []);
+  const featuredArtists = release.type === 'single' ? each.flat() : each[0].filter((a) => each.every((list) => isIn(list, a)));
+  return { ...release, featuredArtists };
+}
+
+/** One line for a release: its artist, then everyone featured, comma separated. */
+export const releaseLine = (release: Album) => release.artistName + featuredSuffix(release);

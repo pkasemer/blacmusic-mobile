@@ -1,5 +1,6 @@
 import { FlatList, Pressable, View } from 'react-native';
 import { useRouter } from 'expo-router';
+import { featuredSuffix, releaseLine } from '@/domain/artists';
 import type { MoreList } from '@/domain/more';
 import type { Album, Artist, Playlist, Podcast } from '@/domain/types';
 import { VerifiedBadge } from './VerifiedBadge';
@@ -142,7 +143,7 @@ export function AlbumShelf({ title, albums, more }: { title: string; albums: Alb
           <Pressable
             onPress={() => router.push({ pathname: '/album/[id]', params: { id: item.id } })}
             accessibilityRole="button"
-            accessibilityLabel={`Open album ${item.title} by ${item.artistName}`}
+            accessibilityLabel={`Open album ${item.title} by ${releaseLine(item)}`}
             style={({ pressed }) => ({ width: CARD, gap: 8, opacity: pressed ? 0.7 : 1 })}
           >
             <Artwork id={item.id} logoUrl={item.artworkUrl} size={CARD} />
@@ -152,6 +153,7 @@ export function AlbumShelf({ title, albums, more }: { title: string; albums: Alb
               </Text>
               <ArtistName
                 name={item.artistName}
+                others={featuredSuffix(item)}
                 verified={item.artistVerified}
                 prefix={`${item.type === 'single' ? 'Single' : item.type === 'ep' ? 'EP' : 'Album'}${item.artistName ? ' ·' : ''}`}
               />

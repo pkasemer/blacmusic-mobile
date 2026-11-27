@@ -3,6 +3,7 @@ import Animated from 'react-native-reanimated';
 import { useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
+import { artistLine } from '@/domain/artists';
 import { blacApi } from '@/api/blac';
 import { fetchMix, mixKey, type Mix } from '@/audio/music/mixData';
 import { playQueue } from '@/audio/music/musicEngine';
@@ -79,7 +80,7 @@ export default function MixScreen() {
           </HeroCover>
           <HeroTitle>{`${reference.title} Mix`}</HeroTitle>
           <Text variant="body" color="textSecondary" style={{ textAlign: 'center' }}>
-            Based on “{reference.title}” by {reference.artistName}
+            Based on “{reference.title}” by {artistLine(reference)}
           </Text>
           <HeroMeta>{[reference.genre, `${tracks.length} ${tracks.length === 1 ? 'song' : 'songs'}`, length].filter(Boolean).join(' · ')}</HeroMeta>
         </DetailHero>
