@@ -60,7 +60,7 @@ export function checkLyrics(source: string, durationSec?: number): CheckedLyrics
   if (!rows.some((row) => STAMP.test(row))) return { timed: false, lines: [], errors: [] };
 
   const errors: FormatError[] = [];
-  const found: (TimedLine & { order: number })[] = [];
+  const found: (TimedLine & { order: number; line: number })[] = [];
   /** The lyric line a translation may follow: the one directly above. */
   let above: { words: boolean; made: TimedLine[]; translated: boolean } | null = null;
   /** The last line with a single time, to keep times in order. */
@@ -113,23 +113,28 @@ export function checkLyrics(source: string, durationSec?: number): CheckedLyrics
       if (last && times[0] <= last.sec) {
         fail(
           times[0] === last.sec
-            ? `Line ${line} has the same time as line ${last.line}. A translation line has no time stamp.`
+            ? `Line ${line}: A translation line has no time stamp.`
             : `Line ${line}: its time must be after ${stamp(last.sec)} on line ${last.line}.`,
         );
       } else {
         last = { sec: times[0], line };
       }
     }
-    if (durationSec && times.some((t) => t > durationSec + 1)) fail(`Line ${line} is after the song ends (${clock(durationSec)}).`);
-
-    const made = times.map((timeSec) => ({ timeSec, text, order: found.length }));
+    const made = times.map((timeSec) => ({ timeSec, text, order: found.length, line }));
     found.push(...made);
     above = { words: text.length > 0, made, translated: false };
   });
 
-  const lines = found
-    .sort((a, b) => a.timeSec - b.timeSec || a.order - b.order)
-    // A positive offset means the lyrics show earlier.
-    .map(({ order, ...l }) => ({ ...l, timeSec: Math.max(0, l.timeSec - offsetSec) }));
+  // A positive offset means the lyrics show earlier.
+  const shifted = found.map((l) => ({ ...l, timeSec: Math.max(0, l.timeSec - offsetSec) }));
+  // Words cannot be sung after the song has ended. A music break there does no harm.
+  if (durationSec) {
+    const late = new Set(shifted.filter((l) => l.text && l.timeSec > durationSec + 1).map((l) => l.line));
+    for (const line of late) errors.push({ line, message: `Line ${line} is after the song ends (${clock(durationSec)}).` });
+    errors.sort((a, b) => a.line - b.line);
+  }
+  const lines = shifted.sort((a, b) => a.timeSec - b.timeSec || a.order - b.order).map(({ order, line, ...l }) => l);
+  // As the server does: music breaks after the last words are left out.
+  while (lines.length > 0 && !lines[lines.length - 1].text) lines.pop();
   return { timed: true, lines, errors };
 }

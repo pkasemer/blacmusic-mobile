@@ -63,3 +63,9 @@ test('a repeated chorus and common file tags still work', () => {
     [29.5, 'Chorus', 'The chorus'],
   ]);
 });
+
+test('as on the server: the end of the song is judged after the offset, and breaks do not count', () => {
+  assert.deepStrictEqual(errorsOf('[offset:+60000]\n[00:01.00]A\n[03:30.00]B', 180), []);
+  assert.deepStrictEqual(errorsOf('[00:01.00]A\n[04:00.00]', 180), []);
+  assert.deepStrictEqual(checkLyrics('[00:01.00]A\n[00:09.00]\n[00:12.00]').lines.map((l) => l.text), ['A']);
+});
